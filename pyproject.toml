@@ -1,0 +1,21 @@
+[project]
+name = "sqlcompare"
+version = "0.1.0"
+description = "CLI for comparing tables and sql queries"
+requires-python = ">=3.10"
+dependencies = [
+  "rich>=14.2.0",
+  "typer>=0.21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "duckdb",
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+sqlcompare = "sqlcompare.cli:main"
+
+[tool.uv]
+package = true
