@@ -1,7 +1,7 @@
 # SQLCompare
 
 SQLCompare helps you understand how a change impacted your data.
-When you modify logic, filters, or inputs, SQLCompare lets you compare the previous and current versions of a dataset—whether they come from tables, SQL queries, or files.
+When you modify logic, filters, or inputs, it lets you compare the previous and current versions of a dataset—whether they come from tables, SQL queries, or files.
 
 You can compare datasets in two complementary ways:
 
