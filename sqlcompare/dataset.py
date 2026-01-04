@@ -9,6 +9,7 @@ import yaml
 
 from sqlcompare.compare.table import compare_table
 from sqlcompare.config import (
+    DB_TEST_DB,
     get_default_schema,
 )
 from sqlcompare.db import DBConnection
@@ -71,6 +72,10 @@ def _create_table_from_select(db: DBConnection, table: str, select_sql: str) -> 
     db.execute(f"CREATE TABLE {table} AS {query}")
 
 
+def _uses_file_only(section: dict[str, Any]) -> bool:
+    return "file_name" in section and "select_sql" not in section
+
+
 def compare_dataset(path: str, connection: str | None, schema: str | None) -> None:
     dataset_path = Path(path)
     if not dataset_path.exists():
@@ -105,9 +110,14 @@ def compare_dataset(path: str, connection: str | None, schema: str | None) -> No
         connector = prev_conn or new_conn
 
     if not connector:
-        raise typer.BadParameter(
-            "No connector specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
-        )
+        if _uses_file_only(previous) and _uses_file_only(new):
+            DB_TEST_DB.parent.mkdir(parents=True, exist_ok=True)
+            db_path = DB_TEST_DB.parent / f"dataset_compare_{uuid.uuid4().hex}.duckdb"
+            connector = f"duckdb:///{db_path}"
+        else:
+            raise typer.BadParameter(
+                "No connector specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
+            )
 
     schema = schema or get_default_schema()
 

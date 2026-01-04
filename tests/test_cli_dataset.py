@@ -121,6 +121,22 @@ def test_dataset_command_with_yaml_dataset(tmp_path: Path, monkeypatch) -> None:
     assert len(runs) == 1
 
 
+def test_dataset_command_file_name_without_connection(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(tmp_path / "config"))
+
+    runner = CliRunner()
+    dataset_path = Path(__file__).parent / "datasets" / "row_compare" / "dataset.yaml"
+
+    result = runner.invoke(app, ["dataset", str(dataset_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "analyze-diff" in result.output
+    runs = load_test_runs()
+    assert len(runs) == 1
+
+
 def test_dataset_command_rejects_mismatched_connectors(
     tmp_path: Path, monkeypatch
 ) -> None:

@@ -94,7 +94,10 @@ def query_cmd(
 def dataset_cmd(
     path: str = typer.Argument(..., help="Path to dataset YAML file"),
     connection: str | None = typer.Option(
-        None, "--connection", "-c", help="Database connector name"
+        None,
+        "--connection",
+        "-c",
+        help="Database connector name (optional when both datasets use file_name)",
     ),
     schema: str | None = typer.Option(
         None, "--schema", help="Schema for dataset tables"
