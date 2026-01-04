@@ -62,10 +62,7 @@ sqlcompare analyze-diff <diff_id> --missing-current
 
 ## Example outputs
 
-See `examples/` for datasets, commands, and captured outputs.
-
-- Row comparison output: `examples/row_compare.md`
-- Statistical comparison output: `examples/stats_compare.md`
+See [`examples/`](examples/) for datasets, commands, and captured outputs.
 
 ---
 
