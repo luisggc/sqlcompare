@@ -1,6 +1,9 @@
+import uuid
+from pathlib import Path
+
 import typer
 
-from sqlcompare.config import get_default_schema
+from sqlcompare.config import DB_TEST_DB, get_default_schema
 from sqlcompare.log import log
 from sqlcompare.utils.test_types.stats import compare_table_stats
 
@@ -29,6 +32,46 @@ def compare_table(
         raise typer.BadParameter("Key columns are required unless --stats is provided.")
 
     schema = schema or get_default_schema()
+
+    table1_path = Path(table1).expanduser()
+    table2_path = Path(table2).expanduser()
+    table1_is_file = table1_path.exists() and table1_path.suffix.lower() in (
+        ".csv",
+        ".xlsx",
+    )
+    table2_is_file = table2_path.exists() and table2_path.suffix.lower() in (
+        ".csv",
+        ".xlsx",
+    )
+
+    if table1_is_file != table2_is_file:
+        raise typer.BadParameter(
+            "Both table arguments must be table names or file paths."
+        )
+
+    if table1_is_file and table2_is_file:
+        connection_id = connection
+        if connection_id is None:
+            DB_TEST_DB.parent.mkdir(parents=True, exist_ok=True)
+            db_path = DB_TEST_DB.parent / f"table_compare_{uuid.uuid4().hex}.duckdb"
+            connection_id = f"duckdb:///{db_path}"
+
+        safe_prev = "".join(c if c.isalnum() else "_" for c in table1_path.stem)
+        safe_new = "".join(c if c.isalnum() else "_" for c in table2_path.stem)
+        suffix = uuid.uuid4().hex[:8]
+        table1 = f"{safe_prev}_{suffix}"
+        table2 = f"{safe_new}_{suffix}"
+
+        try:
+            from sqlcompare.db import DBConnection
+
+            with DBConnection(connection_id) as db:
+                db.create_table_from_file(table1, table1_path)
+                db.create_table_from_file(table2, table2_path)
+        except Exception as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+        connection = connection_id
 
     # Parse IDs
     id_cols = [x.strip() for x in ids.split(",")]

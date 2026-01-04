@@ -40,3 +40,23 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
     assert "analyze-diff" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
+
+
+def test_table_command_with_files(tmp_path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(config_dir))
+    runner = CliRunner()
+
+    dataset_dir = Path(__file__).parent / "datasets" / "row_compare"
+    previous_csv = dataset_dir / "previous.csv"
+    current_csv = dataset_dir / "current.csv"
+
+    result = runner.invoke(
+        app,
+        ["table", str(previous_csv), str(current_csv), "id"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "analyze-diff" in result.output
+    runs = load_test_runs()
+    assert len(runs) == 1

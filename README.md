@@ -62,64 +62,10 @@ sqlcompare analyze-diff <diff_id> --missing-current
 
 ## Example outputs
 
-Row comparison (with IDs):
+See `examples/README.md` for datasets, commands, and captured outputs.
 
-```bash
-sqlcompare table previous current id --connection duckdb_test --schema analysis_schema
-```
-
-```text
-✅ Ensured schema 'analysis_schema' exists
-Joining tables: previous and current
-Rows only in current dataset: 1
-+----+---------+-------+
-| id |  name   | value |
-+----+---------+-------+
-| 3  | charlie |  30   |
-+----+---------+-------+
-Rows only in previous dataset: 1
-+----+-------+-------+
-| id | name  | value |
-+----+-------+-------+
-| 2  | bravo |  20   |
-+----+-------+-------+
-🚨 Differences in values for common rows: 2 rows in total
-
-📊 Difference statistics by column:
-+-------------+------------+
-| COLUMN_NAME | diff_count |
-+-------------+------------+
-|    name     |     1      |
-|    value    |     1      |
-+-------------+------------+
-
-📋 Sample differences (first 10 rows):
-+----+--------+--------+---------+
-| id | COLUMN | BEFORE | CURRENT |
-+----+--------+--------+---------+
-| 1  |  name  | alpha  |  alfa   |
-| 1  | value  |   10   |   11    |
-+----+--------+--------+---------+
-🔎 To review the diff, run: sqlcompare analyze-diff compare_previous_current_20260103_224839_ca9b96d2
-💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, --column <name> to filter, --list-columns to inspect available fields.
-```
-
-Statistical comparison (no IDs, fast check):
-
-```bash
-sqlcompare table previous current --connection duckdb_test --schema analysis_schema --stats
-```
-
-```text
-📊 Table statistics comparison:
-+-------------+-----------+----------+------------+-----------+---------------+--------------+-----------+------------+---------------+
-| COLUMN_NAME | PREV_ROWS | NEW_ROWS | PREV_NULLS | NEW_NULLS | PREV_DISTINCT | NEW_DISTINCT | ROWS_DIFF | NULLS_DIFF | DISTINCT_DIFF |
-+-------------+-----------+----------+------------+-----------+---------------+--------------+-----------+------------+---------------+
-|     id      |     2     |    2     |     0      |     0     |       2       |      2       |     0     |     0      |       0       |
-|    name     |     2     |    2     |     0      |     0     |       2       |      2       |     0     |     0      |       0       |
-|    value    |     2     |    2     |     0      |     0     |       2       |      2       |     0     |     0      |       0       |
-+-------------+-----------+----------+------------+-----------+---------------+--------------+-----------+------------+---------------+
-```
+- Row comparison output: `examples/row_compare/output.txt`
+- Statistical comparison output: `examples/stats_compare/output.txt`
 
 ---
 

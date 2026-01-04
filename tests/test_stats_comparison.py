@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from typer.testing import CliRunner
 
 from sqlcompare.cli import app
@@ -67,3 +69,23 @@ def test_table_command_with_stats(tmp_path, monkeypatch) -> None:
     for col_name in ("id", "name", "value"):
         assert col_name in rows, result.output
         assert rows[col_name][1:] == ["2", "2", "0", "0", "2", "2", "0", "0", "0"]
+
+
+def test_table_command_with_stats_from_files() -> None:
+    runner = CliRunner()
+    base = Path(__file__).resolve().parent
+    prev_path = base / "datasets" / "stats_compare" / "previous.csv"
+    curr_path = base / "datasets" / "stats_compare" / "current.csv"
+
+    result = runner.invoke(
+        app,
+        [
+            "table",
+            str(prev_path),
+            str(curr_path),
+            "--stats",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Table statistics comparison" in result.output

@@ -1,0 +1,69 @@
+row_compare:
+  description: Compare rows using a dataset YAML with file inputs
+  command: sqlcompare dataset tests/datasets/row_compare/dataset.yaml --connection duckdb:////tmp/sqlcompare_examples.duckdb --schema examples
+
+row_compare_missing:
+  description: Show rows only in current/previous after a dataset comparison
+  command: |
+    python - <<'PY'
+    import re
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            "sqlcompare",
+            "dataset",
+            "tests/datasets/row_compare/dataset.yaml",
+            "--connection",
+            "duckdb:////tmp/sqlcompare_examples.duckdb",
+            "--schema",
+            "examples",
+        ],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        sys.exit(result.returncode)
+
+    output = result.stdout + result.stderr
+    match = re.search(r"sqlcompare analyze-diff ([^\\s]+)", output)
+    if not match:
+        sys.exit("Could not find diff id in sqlcompare output.")
+
+    diff_id = match.group(1)
+    subprocess.run(
+        [
+            "sqlcompare",
+            "analyze-diff",
+            diff_id,
+            "--missing-current",
+            "--missing-previous",
+        ],
+        check=True,
+    )
+    PY
+
+stats_compare:
+  description: Compare statistics between two CSV files
+  command: sqlcompare table tests/datasets/stats_compare/previous.csv tests/datasets/stats_compare/current.csv --stats
+
+stats_compare_tables:
+  description: Compare statistics between tables loaded into DuckDB
+  command: |
+    python - <<'PY'
+    import duckdb
+
+    db_path = "/tmp/sqlcompare_examples.duckdb"
+    con = duckdb.connect(db_path)
+    con.execute(
+        "CREATE OR REPLACE TABLE stats_prev AS SELECT * FROM read_csv_auto('tests/datasets/stats_compare/previous.csv')"
+    )
+    con.execute(
+        "CREATE OR REPLACE TABLE stats_curr AS SELECT * FROM read_csv_auto('tests/datasets/stats_compare/current.csv')"
+    )
+    con.close()
+    PY
+    sqlcompare table stats_prev stats_curr --connection duckdb:////tmp/sqlcompare_examples.duckdb --stats

@@ -13,8 +13,10 @@ app = typer.Typer(help="Compare database tables and inspect diffs.")
 
 @app.command("table")
 def table(
-    table1: str = typer.Argument(..., help="Previous table name"),
-    table2: str = typer.Argument(..., help="Current table name"),
+    table1: str = typer.Argument(
+        ..., help="Previous table name or CSV/XLSX file path"
+    ),
+    table2: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
     ids: str | None = typer.Argument(
         None, help="Comma-separated list of key columns (required unless --stats)"
     ),

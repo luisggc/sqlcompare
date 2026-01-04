@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlcompare.db import DBConnection
 from sqlcompare.log import log
 from sqlcompare.utils.format import format_table
@@ -45,13 +47,33 @@ def _collect_table_stats(
     return int(row_count), stats
 
 
+def _is_supported_file(path: Path) -> bool:
+    return path.exists() and path.suffix.lower() in (".csv", ".xlsx")
+
+
 def compare_table_stats(table1: str, table2: str, connection: str | None) -> None:
-    with DBConnection(connection) as db:
+    table1_name = table1
+    table2_name = table2
+    connection_id = connection
+
+    if connection is None:
+        path1 = Path(table1).expanduser()
+        path2 = Path(table2).expanduser()
+        if _is_supported_file(path1) and _is_supported_file(path2):
+            connection_id = "duckdb:///:memory:"
+            table1_name = path1.stem
+            table2_name = path2.stem
+
+    with DBConnection(connection_id) as db:
+        if connection is None and connection_id == "duckdb:///:memory:":
+            db.create_table_from_file(table1_name, table1)
+            db.create_table_from_file(table2_name, table2)
+
         _, cols_prev = db.query(
-            f"SELECT * FROM {table1} WHERE 1=0", include_columns=True
+            f"SELECT * FROM {table1_name} WHERE 1=0", include_columns=True
         )
         _, cols_new = db.query(
-            f"SELECT * FROM {table2} WHERE 1=0", include_columns=True
+            f"SELECT * FROM {table2_name} WHERE 1=0", include_columns=True
         )
 
         prev_map = {col.upper(): col for col in cols_prev}
@@ -65,8 +87,8 @@ def compare_table_stats(table1: str, table2: str, connection: str | None) -> Non
         prev_cols = [prev_map[key] for key in common_keys]
         new_cols = [new_map[key] for key in common_keys]
 
-        prev_count, prev_stats = _collect_table_stats(db, table1, prev_cols)
-        new_count, new_stats = _collect_table_stats(db, table2, new_cols)
+        prev_count, prev_stats = _collect_table_stats(db, table1_name, prev_cols)
+        new_count, new_stats = _collect_table_stats(db, table2_name, new_cols)
 
     output_columns = [
         "COLUMN_NAME",

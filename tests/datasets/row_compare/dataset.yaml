@@ -1,0 +1,9 @@
+previous:
+  file_name: "{{here}}/previous.csv"
+  index:
+    - id
+
+new:
+  file_name: "{{here}}/current.csv"
+  index:
+    - id
