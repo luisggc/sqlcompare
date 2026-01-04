@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
 
 import typer
 
+from sqlcompare.compare.comparator import DatabaseComparator
 from sqlcompare.config import DB_TEST_DB, get_default_schema
+from sqlcompare.db import DBConnection
 from sqlcompare.log import log
 from sqlcompare.utils.test_types.stats import compare_table_stats
-
-from .comparator import DatabaseComparator
 
 
 def compare_table(
@@ -63,8 +65,6 @@ def compare_table(
         table2 = f"{safe_new}_{suffix}"
 
         try:
-            from sqlcompare.db import DBConnection
-
             with DBConnection(connection_id) as db:
                 db.create_table_from_file(table1, table1_path)
                 db.create_table_from_file(table2, table2_path)
@@ -89,3 +89,23 @@ def compare_table(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
         "--column <name> to filter, --list-columns to inspect available fields."
     )
+
+
+def table_cmd(
+    table1: str = typer.Argument(
+        ..., help="Previous table name or CSV/XLSX file path"
+    ),
+    table2: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
+    ids: str | None = typer.Argument(
+        None, help="Comma-separated list of key columns (required unless --stats)"
+    ),
+    connection: str | None = typer.Option(
+        None, "--connection", "-c", help="Database connector name"
+    ),
+    schema: str | None = typer.Option(None, "--schema", help="Schema for test tables"),
+    stats: bool = typer.Option(
+        False, "--stats", help="Compare tables statistically without joining rows"
+    ),
+) -> None:
+    """Compare two database tables or CSV/XLSX files."""
+    compare_table(table1, table2, ids, connection, schema, stats=stats)

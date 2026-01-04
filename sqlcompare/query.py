@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import csv
-import re
+
+import typer
 
 from sqlcompare.db import DBConnection
+from sqlcompare.helpers import resolve_output_filename
 from sqlcompare.log import log
 
 
@@ -39,7 +43,7 @@ def query(q: str, connection: str | None, output: str) -> None:
             print("Query executed successfully. No rows returned.")
         return
 
-    output = _resolve_output_filename(output, q)
+    output = resolve_output_filename(output, q)
     if not output:
         return
 
@@ -50,22 +54,17 @@ def query(q: str, connection: str | None, output: str) -> None:
     log.info(f"Results saved to CSV file: {output}")
 
 
-def _resolve_output_filename(output: str, query: str) -> str | None:
-    if output.lower().endswith(".xlsx"):
-        log.error("❌ XLSX output is not supported without pandas. Use CSV instead.")
-        return None
-
-    if output.lower().endswith(".csv"):
-        return output
-
-    match = re.search(r"(?:SELECT\s+)(\w+)|(?:FROM\s+)(\w+)", query, re.IGNORECASE)
-    if match:
-        query_identifier = next((m for m in match.groups() if m), "query_result")
-    else:
-        query_identifier = "query_result"
-
-    if "." in output:
-        log.error("❌ Only CSV output is supported without pandas.")
-        return None
-
-    return f"{query_identifier}.csv"
+def query_cmd(
+    q: str = typer.Argument(..., help="SQL query to run"),
+    connection: str | None = typer.Option(
+        None, "--connection", "-c", "--conn", help="Connector name"
+    ),
+    output: str = typer.Option(
+        "terminal",
+        "--output",
+        "-o",
+        help="Output format or file path. Use 'terminal' or provide a .csv filename",
+    ),
+) -> None:
+    """Execute SQL query and display or save results."""
+    query(q, connection, output)

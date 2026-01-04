@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import os
 
-from sqlcompare.log import log
-from sqlcompare.db import DBConnection
-from ..analysis.utils import (
+import typer
+
+from sqlcompare.analysis.utils import (
     _display,
     find_diff_file,
     find_diff_run,
     list_available_diffs,
 )
-from .comparator import DatabaseComparator
+from sqlcompare.compare.comparator import DatabaseComparator
+from sqlcompare.db import DBConnection
+from sqlcompare.log import log
 
 
 def analyze_diff(
@@ -21,28 +25,11 @@ def analyze_diff(
     missing_current: bool = False,
     missing_previous: bool = False,
 ) -> None:
-    run_analysis(
-        diff_id,
-        column=column,
-        limit=limit,
-        save=save,
-        list_columns=list_columns,
-        stats=stats,
-        missing_current=missing_current,
-        missing_previous=missing_previous,
-    )
+    """
+    Analyze diff results from a previous comparison run.
 
-
-def run_analysis(
-    diff_id,
-    column=None,
-    limit=25,
-    save=False,
-    list_columns=False,
-    stats=False,
-    missing_current=False,
-    missing_previous=False,
-):
+    Supports database-backed diffs and legacy pickle files.
+    """
     run = find_diff_run(diff_id)
     if run:
         tables = run["tables"]
@@ -212,3 +199,38 @@ def run_analysis(
         return
 
     log.error("❌ Pickle-based diff files are not supported without pandas.")
+
+
+def analyze_diff_cmd(
+    diff_id: str = typer.Argument(..., help="Diff run ID"),
+    column: str | None = typer.Option(
+        None, "--column", "-c", help="Filter by specific column name"
+    ),
+    limit: int = typer.Option(25, "--limit", "-l", help="Limit results to display"),
+    save: bool = typer.Option(
+        False, "--save", help="Save filtered results to CSV file"
+    ),
+    list_columns: bool = typer.Option(
+        False, "--list-columns", help="List available columns in the diff data"
+    ),
+    stats: bool = typer.Option(
+        False, "--stats", help="Show statistics table instead of differences"
+    ),
+    missing_current: bool = typer.Option(
+        False, "--missing-current", help="Show rows only in current dataset"
+    ),
+    missing_previous: bool = typer.Option(
+        False, "--missing-previous", help="Show rows only in previous dataset"
+    ),
+) -> None:
+    """Analyze diff results from a previous comparison run."""
+    analyze_diff(
+        diff_id,
+        column=column,
+        limit=limit,
+        save=save,
+        list_columns=list_columns,
+        stats=stats,
+        missing_current=missing_current,
+        missing_previous=missing_previous,
+    )

@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import glob
 import os
-
 from datetime import datetime
+
+import typer
 
 from sqlcompare.config import get_tests_folder, load_test_runs
 from sqlcompare.log import log
 
 
 def list_diffs(pattern: str | None, test: str | None) -> None:
+    """List available diff data files and runs."""
     tests_folder = get_tests_folder()
     search_pattern = f"{tests_folder}/*/diffs/*.pkl"
     matches = glob.glob(search_pattern)
@@ -52,3 +56,11 @@ def list_diffs(pattern: str | None, test: str | None) -> None:
         log.info(
             f"{diff_id[:30]:<30} | {test_name:<10} | {size_mb:>5.1f}MB | {time_str}"
         )
+
+
+def list_diffs_cmd(
+    pattern: str | None = typer.Argument(None, help="Match diff IDs"),
+    test: str | None = typer.Option(None, "--test", help="Filter by test name"),
+) -> None:
+    """List all available diff data files."""
+    list_diffs(pattern, test)
