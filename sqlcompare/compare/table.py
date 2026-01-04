@@ -2,18 +2,32 @@ import typer
 
 from sqlcompare.config import get_default_schema
 from sqlcompare.log import log
+from sqlcompare.utils.test_types.stats import compare_table_stats
 
 from .comparator import DatabaseComparator
 
 
 def compare_table(
-    table1: str, table2: str, ids: str, connection: str | None, schema: str | None
+    table1: str,
+    table2: str,
+    ids: str | None,
+    connection: str | None,
+    schema: str | None,
+    *,
+    stats: bool = False,
 ) -> None:
     """Compare two tables in the database.
 
     TABLE1 and TABLE2 are the names of the tables to compare.
     IDS is a comma-separated list of column names to use as the unique key.
     """
+    if stats:
+        compare_table_stats(table1, table2, connection)
+        return
+
+    if not ids:
+        raise typer.BadParameter("Key columns are required unless --stats is provided.")
+
     schema = schema or get_default_schema()
 
     # Parse IDs

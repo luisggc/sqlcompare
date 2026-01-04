@@ -15,13 +15,18 @@ app = typer.Typer(help="Compare database tables and inspect diffs.")
 def table(
     table1: str = typer.Argument(..., help="Previous table name"),
     table2: str = typer.Argument(..., help="Current table name"),
-    ids: str = typer.Argument(..., help="Comma-separated list of key columns"),
+    ids: str | None = typer.Argument(
+        None, help="Comma-separated list of key columns (required unless --stats)"
+    ),
     connection: str | None = typer.Option(
         None, "--connection", "-c", help="Database connector name"
     ),
     schema: str | None = typer.Option(None, "--schema", help="Schema for test tables"),
+    stats: bool = typer.Option(
+        False, "--stats", help="Compare tables statistically without joining rows"
+    ),
 ) -> None:
-    compare_table(table1, table2, ids, connection, schema)
+    compare_table(table1, table2, ids, connection, schema, stats=stats)
 
 
 @app.command("analyze-diff")

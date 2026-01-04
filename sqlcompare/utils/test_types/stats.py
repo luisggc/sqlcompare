@@ -1,63 +1,105 @@
-import os
-
+from sqlcompare.db import DBConnection
 from sqlcompare.log import log
+from sqlcompare.utils.format import format_table
 
-possible_stats = {"diff": lambda x, y: y - x, "diff%": lambda x, y: 100 * (y - x) / x}
+
+def _quote_ident(name: str) -> str:
+    return f'"{name.replace('"', '""')}"'
 
 
-def test_stats(df_previous, df_current, test_config, save):
-    try:
-        import pandas as pd
-    except ImportError:
-        log.error(
-            "❌ pandas is required for stats tests. Install it to use this feature."
+def _collect_table_stats(
+    db: DBConnection, table: str, columns: list[str]
+) -> tuple[int, dict[str, dict[str, int]]]:
+    if not columns:
+        return 0, {}
+
+    select_parts = ["COUNT(*) AS row_count"]
+    alias_map: dict[str, tuple[str, str]] = {}
+    for idx, col in enumerate(columns):
+        col_ref = _quote_ident(col)
+        null_alias = f"c{idx}_nulls"
+        distinct_alias = f"c{idx}_distinct"
+        select_parts.append(
+            f"SUM(CASE WHEN {col_ref} IS NULL THEN 1 ELSE 0 END) AS {null_alias}"
         )
-        return
-    common_columns = df_current.columns.intersection(df_previous.columns)
-    index_cols = [*df_previous.attrs["index_cols"], *df_current.attrs["index_cols"]]
-    common_columns = [column for column in common_columns if column not in index_cols]
-    # merge both dataframes
-    df_merged = pd.merge(
-        df_previous[common_columns],
-        df_current[common_columns],
-        left_index=True,
-        right_index=True,
-        suffixes=("_p", "_n"),
-    )
-    for common_column in common_columns:
-        for stat_name, stat_func in possible_stats.items():
-            try:
-                df_merged[common_column + "_" + stat_name] = stat_func(
-                    df_merged[f"{common_column}_p"], df_merged[f"{common_column}_n"]
-                )
-            except Exception:
-                log.info(f"Error calculating {stat_name} for column {common_column}")
+        select_parts.append(f"COUNT(DISTINCT {col_ref}) AS {distinct_alias}")
+        alias_map[col.upper()] = (null_alias, distinct_alias)
 
-    common_columns_with_new_ones = [
-        item
-        for common_column in common_columns
-        for item in (
-            [f"{common_column}_p", f"{common_column}_n"]
-            + [f"{common_column}_{stat}" for stat in possible_stats]
+    query = f"SELECT {', '.join(select_parts)} FROM {table}"
+    rows, cols = db.query(query, include_columns=True)
+    if not rows:
+        return 0, {}
+
+    row = rows[0]
+    col_index = {col.upper(): idx for idx, col in enumerate(cols)}
+    row_count = row[col_index.get("ROW_COUNT", 0)]
+
+    stats: dict[str, dict[str, int]] = {}
+    for col_key, (null_alias, distinct_alias) in alias_map.items():
+        null_idx = col_index.get(null_alias.upper())
+        distinct_idx = col_index.get(distinct_alias.upper())
+        stats[col_key] = {
+            "null_count": row[null_idx] if null_idx is not None else 0,
+            "distinct_count": row[distinct_idx] if distinct_idx is not None else 0,
+        }
+    return int(row_count), stats
+
+
+def compare_table_stats(table1: str, table2: str, connection: str | None) -> None:
+    with DBConnection(connection) as db:
+        _, cols_prev = db.query(
+            f"SELECT * FROM {table1} WHERE 1=0", include_columns=True
         )
+        _, cols_new = db.query(
+            f"SELECT * FROM {table2} WHERE 1=0", include_columns=True
+        )
+
+        prev_map = {col.upper(): col for col in cols_prev}
+        new_map = {col.upper(): col for col in cols_new}
+        common_keys = [key for key in prev_map if key in new_map]
+
+        if not common_keys:
+            log.info("No common columns found between the two tables.")
+            return
+
+        prev_cols = [prev_map[key] for key in common_keys]
+        new_cols = [new_map[key] for key in common_keys]
+
+        prev_count, prev_stats = _collect_table_stats(db, table1, prev_cols)
+        new_count, new_stats = _collect_table_stats(db, table2, new_cols)
+
+    output_columns = [
+        "COLUMN_NAME",
+        "PREV_ROWS",
+        "NEW_ROWS",
+        "PREV_NULLS",
+        "NEW_NULLS",
+        "PREV_DISTINCT",
+        "NEW_DISTINCT",
+        "ROWS_DIFF",
+        "NULLS_DIFF",
+        "DISTINCT_DIFF",
     ]
-    df_merged = df_merged[common_columns_with_new_ones]
+    rows = []
+    for key in common_keys:
+        prev_nulls = prev_stats.get(key, {}).get("null_count", 0)
+        new_nulls = new_stats.get(key, {}).get("null_count", 0)
+        prev_distinct = prev_stats.get(key, {}).get("distinct_count", 0)
+        new_distinct = new_stats.get(key, {}).get("distinct_count", 0)
+        rows.append(
+            (
+                prev_map[key],
+                prev_count,
+                new_count,
+                prev_nulls,
+                new_nulls,
+                prev_distinct,
+                new_distinct,
+                new_count - prev_count,
+                new_nulls - prev_nulls,
+                new_distinct - prev_distinct,
+            )
+        )
 
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_rows", None)
-    pd.set_option("display.width", 150)
-    log.info(df_merged)
-    if save:
-        dt_suffix = pd.Timestamp.now().strftime("%Y-%m-%d_%H-%M-%S")
-        file_name = f"{test_config['test_folder']}/extracts/{test_config['test_name']}-{dt_suffix}.csv"
-        os.makedirs(os.path.dirname(file_name), exist_ok=True)
-        df_merged.to_csv(file_name, index=True)
-        log.info("--------------------")
-        log.info(f"File saved at {file_name}")
-    log.info("--------------------")
-    log.info("Summary of the % of differences:")
-    for common_column in common_columns:
-        sum_n = sum(df_merged[common_column + "_n"])
-        sum_p = sum(df_merged[common_column + "_p"])
-        perc_diff = 100 * (sum_n - sum_p) / sum_p if sum_p != 0 else pd.NA
-        log.info(f"{common_column}: {perc_diff:.2f}%")
+    log.info("📊 Table statistics comparison:")
+    log.info(format_table(output_columns, rows))
