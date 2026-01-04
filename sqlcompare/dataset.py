@@ -59,9 +59,7 @@ def _ensure_schema(db: DBConnection, schema: str) -> None:
     db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
 
-def _create_table_from_file(
-    db: DBConnection, table: str, file_path: str
-) -> None:
+def _create_table_from_file(db: DBConnection, table: str, file_path: str) -> None:
     try:
         db.create_table_from_file(table, file_path)
     except ValueError as exc:
@@ -136,9 +134,7 @@ def compare_dataset(path: str, connection: str | None, schema: str | None) -> No
                 "previous cannot include both file_name and select_sql."
             )
         if "file_name" in previous:
-            _create_table_from_file(
-                db, previous_table, previous["file_name"]
-            )
+            _create_table_from_file(db, previous_table, previous["file_name"])
         elif "select_sql" in previous:
             _create_table_from_select(db, previous_table, previous["select_sql"])
         else:

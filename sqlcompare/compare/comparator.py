@@ -44,7 +44,6 @@ class DatabaseComparator:
             except Exception as e2:
                 log.warning(f"Could not create schema '{test_schema}': {e2}")
 
-
     def _sort_rows(
         self, columns: list[str], rows: list[tuple], sort_col: str | None
     ) -> list[tuple]:
@@ -203,8 +202,12 @@ class DatabaseComparator:
                 pass
 
             # Get column names from pre-existing tables
-            _, cols_prev = db.query(f"SELECT * FROM {tables['previous']} WHERE 1=0", include_columns=True)
-            _, cols_new = db.query(f"SELECT * FROM {tables['new']} WHERE 1=0", include_columns=True)
+            _, cols_prev = db.query(
+                f"SELECT * FROM {tables['previous']} WHERE 1=0", include_columns=True
+            )
+            _, cols_new = db.query(
+                f"SELECT * FROM {tables['new']} WHERE 1=0", include_columns=True
+            )
             self.cols_prev = cols_prev
             self.cols_new = cols_new
 
@@ -273,7 +276,9 @@ class DatabaseComparator:
             )
             missing_prev = result[0][0] if result else 0
             cond_new = " AND ".join([f'"{c}_new" IS NULL' for c in self.index_cols])
-            result = db.query("SELECT COUNT(*) FROM " + tables["join"] + " WHERE " + cond_new)
+            result = db.query(
+                "SELECT COUNT(*) FROM " + tables["join"] + " WHERE " + cond_new
+            )
             missing_new = result[0][0] if result else 0
             if missing_prev:
                 log.info(f"Rows only in current dataset: {missing_prev}")

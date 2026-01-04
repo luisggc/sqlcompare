@@ -18,8 +18,7 @@ def test_csv_reader_returns_query_and_columns(tmp_path: Path) -> None:
     with DBConnection(conn_url) as db:
         db.create_table_from_file("sample", csv_path)
         columns = [
-            row[1]
-            for row in db.query("PRAGMA table_info('sample')", fetch=True)
+            row[1] for row in db.query("PRAGMA table_info('sample')", fetch=True)
         ]
         rows = db.query("SELECT * FROM sample ORDER BY id")
 
@@ -36,8 +35,7 @@ def test_csv_reader_prefers_integer_types(tmp_path: Path) -> None:
     with DBConnection(conn_url) as db:
         db.create_table_from_file("numbers", csv_path)
         columns = [
-            row[1]
-            for row in db.query("PRAGMA table_info('numbers')", fetch=True)
+            row[1] for row in db.query("PRAGMA table_info('numbers')", fetch=True)
         ]
         rows = db.query("SELECT * FROM numbers ORDER BY id")
 

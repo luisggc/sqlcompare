@@ -49,10 +49,16 @@ def format_table(
         out_rows = []
         for r in rows:
             r_list = list(r)
-            kept = [r_list[i] for i in keep_idx[:left]] + ["…"] + [r_list[i] for i in keep_idx[left:]]
+            kept = (
+                [r_list[i] for i in keep_idx[:left]]
+                + ["…"]
+                + [r_list[i] for i in keep_idx[left:]]
+            )
             out_rows.append(tuple(kept))
     else:
-        out_columns = columns[: max_cols] if (n_cols > max_cols and max_cols >= 1) else columns
+        out_columns = (
+            columns[:max_cols] if (n_cols > max_cols and max_cols >= 1) else columns
+        )
         keep_idx = list(range(len(out_columns)))
         out_rows = [tuple(r[i] for i in keep_idx) for r in rows]
 
@@ -71,9 +77,6 @@ def format_table(
 
     # ---- cell trimming ----
     if max_cell_width is not None:
-        out_rows = [
-            tuple(_trim_cell(v, max_cell_width) for v in r)
-            for r in out_rows
-        ]
+        out_rows = [tuple(_trim_cell(v, max_cell_width) for v in r) for r in out_rows]
 
     return tabulate(out_rows, headers=out_columns, tablefmt=tablefmt, **tabulate_kwargs)

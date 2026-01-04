@@ -1,8 +1,6 @@
 import typer
 
-from sqlcompare.config import (
-    get_default_schema
-)
+from sqlcompare.config import get_default_schema
 from sqlcompare.log import log
 
 from .comparator import DatabaseComparator

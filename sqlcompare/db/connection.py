@@ -55,9 +55,7 @@ class DBConnection:
     last_rowcount: int | None = field(init=False, default=None)
 
     def __enter__(self) -> "DBConnection":
-        url = resolve_connection_url(
-            self.conn_id
-        )
+        url = resolve_connection_url(self.conn_id)
 
         # Check if this is a file-based connection
         file_path = None

@@ -16,9 +16,7 @@ def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return config_path
 
 
-def test_csv_compare_between_two_files(
-    config_dir: Path, tmp_path: Path
-) -> None:
+def test_csv_compare_between_two_files(config_dir: Path, tmp_path: Path) -> None:
     dataset_dir = Path(__file__).parent / "datasets" / "csv_compare"
     previous_csv = dataset_dir / "previous.csv"
     current_csv = dataset_dir / "current.csv"
@@ -42,9 +40,7 @@ def test_csv_compare_between_two_files(
         diff_count = count_rows(db, comparator.get_diff_query())
         assert diff_count == 2
 
-        stats_rows, _ = db.query(
-            comparator.get_stats_query(), include_columns=True
-        )
+        stats_rows, _ = db.query(comparator.get_stats_query(), include_columns=True)
         stats = {str(row[0]).upper(): row[1] for row in stats_rows}
         assert stats["NAME"] == 1
         assert stats["AMOUNT"] == 1

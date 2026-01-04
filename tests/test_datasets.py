@@ -43,9 +43,7 @@ def config_dir(tmp_path, monkeypatch) -> Path:
     return config_path
 
 
-def _assert_common_diffs(
-    comparator: DatabaseComparator, db: DBConnection
-):
+def _assert_common_diffs(comparator: DatabaseComparator, db: DBConnection):
     diff_count = count_rows(db, comparator.get_diff_query())
     assert diff_count == 4
 

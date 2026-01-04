@@ -14,12 +14,8 @@ def seed_duckdb(db_path: Path) -> None:
     with DBConnection(f"duckdb:///{db_path}") as db:
         db.execute("CREATE TABLE previous (id INTEGER, name VARCHAR, value INTEGER)")
         db.execute("CREATE TABLE current (id INTEGER, name VARCHAR, value INTEGER)")
-        db.execute(
-            "INSERT INTO previous VALUES (1, 'alpha', 10), (2, 'bravo', 20)"
-        )
-        db.execute(
-            "INSERT INTO current VALUES (1, 'alfa', 11), (3, 'charlie', 30)"
-        )
+        db.execute("INSERT INTO previous VALUES (1, 'alpha', 10), (2, 'bravo', 20)")
+        db.execute("INSERT INTO current VALUES (1, 'alfa', 11), (3, 'charlie', 30)")
 
 
 def set_cli_env(

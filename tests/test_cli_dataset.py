@@ -42,12 +42,24 @@ def test_dataset_command_select_sql(tmp_path: Path, monkeypatch) -> None:
 
     env = _env(tmp_path / "config", "duckdb_test", f"duckdb:///{db_path}")
     monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", env["SQLCOMPARE_CONFIG_DIR"])
-    monkeypatch.setenv("SQLCOMPARE_CONN_DUCKDB_TEST", env["SQLCOMPARE_CONN_DUCKDB_TEST"])
+    monkeypatch.setenv(
+        "SQLCOMPARE_CONN_DUCKDB_TEST", env["SQLCOMPARE_CONN_DUCKDB_TEST"]
+    )
 
     runner = CliRunner()
     dataset_path = Path(__file__).parent / "datasets" / "duckdb_test" / "test.yaml"
 
-    result = runner.invoke(app, ["dataset", str(dataset_path), "--connection", "duckdb_test", "--schema", "sqlcompare"])
+    result = runner.invoke(
+        app,
+        [
+            "dataset",
+            str(dataset_path),
+            "--connection",
+            "duckdb_test",
+            "--schema",
+            "sqlcompare",
+        ],
+    )
     assert result.exit_code == 0, result.output
     runs = load_test_runs()
     assert len(runs) == 1
@@ -66,13 +78,25 @@ def test_dataset_command_file_name(tmp_path: Path, monkeypatch) -> None:
     runner = CliRunner()
     dataset_path = Path(__file__).parent / "datasets" / "csv_test" / "test.yaml"
 
-    result = runner.invoke(app, ["dataset", str(dataset_path), "--connection", "duckdb", "--schema", "sqlcompare"])
+    result = runner.invoke(
+        app,
+        [
+            "dataset",
+            str(dataset_path),
+            "--connection",
+            "duckdb",
+            "--schema",
+            "sqlcompare",
+        ],
+    )
     assert result.exit_code == 0, result.output
     runs = load_test_runs()
     assert len(runs) == 1
 
 
-def test_dataset_command_rejects_mismatched_connectors(tmp_path: Path, monkeypatch) -> None:
+def test_dataset_command_rejects_mismatched_connectors(
+    tmp_path: Path, monkeypatch
+) -> None:
     dataset_path = tmp_path / "dataset.yaml"
     dataset_path.write_text(
         yaml.safe_dump(
@@ -99,7 +123,9 @@ def test_dataset_command_rejects_mismatched_connectors(tmp_path: Path, monkeypat
     assert "connector" in result.output.lower()
 
 
-def test_dataset_command_rejects_mismatched_indexes(tmp_path: Path, monkeypatch) -> None:
+def test_dataset_command_rejects_mismatched_indexes(
+    tmp_path: Path, monkeypatch
+) -> None:
     dataset_path = tmp_path / "dataset.yaml"
     dataset_path.write_text(
         yaml.safe_dump(
@@ -118,7 +144,17 @@ def test_dataset_command_rejects_mismatched_indexes(tmp_path: Path, monkeypatch)
 
     runner = CliRunner()
 
-    result = runner.invoke(app, ["dataset", str(dataset_path), "--connection", "duckdb", "--schema", "sqlcompare"])
+    result = runner.invoke(
+        app,
+        [
+            "dataset",
+            str(dataset_path),
+            "--connection",
+            "duckdb",
+            "--schema",
+            "sqlcompare",
+        ],
+    )
 
     assert result.exit_code != 0
     assert "index" in result.output.lower()

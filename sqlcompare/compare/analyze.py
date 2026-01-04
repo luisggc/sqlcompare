@@ -104,7 +104,8 @@ def run_analysis(
                 # Use limit in SQL only if we are NOT saving and NOT listing columns
                 sql_limit = limit if not save and not list_columns else None
                 rows, columns = db.query(
-                    comp.get_diff_query(column=column, limit=sql_limit), include_columns=True
+                    comp.get_diff_query(column=column, limit=sql_limit),
+                    include_columns=True,
                 )
                 _display(
                     columns,
@@ -134,7 +135,9 @@ def run_analysis(
                 )
                 return
             if missing_current:
-                rows, columns = db.query(comp.get_in_current_only_query(), include_columns=True)
+                rows, columns = db.query(
+                    comp.get_in_current_only_query(), include_columns=True
+                )
                 _display(
                     columns,
                     rows,
@@ -146,7 +149,9 @@ def run_analysis(
                 )
                 return
             if missing_previous:
-                rows, columns = db.query(comp.get_in_previous_only_query(), include_columns=True)
+                rows, columns = db.query(
+                    comp.get_in_previous_only_query(), include_columns=True
+                )
                 _display(
                     columns,
                     rows,
@@ -161,7 +166,8 @@ def run_analysis(
             # Use limit in SQL only if we are NOT saving and NOT listing columns
             sql_limit = limit if not save and not list_columns else None
             rows, columns = db.query(
-                comp.get_diff_query(column=column, limit=sql_limit), include_columns=True
+                comp.get_diff_query(column=column, limit=sql_limit),
+                include_columns=True,
             )
             _display(
                 columns,

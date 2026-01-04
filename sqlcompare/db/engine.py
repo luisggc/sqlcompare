@@ -24,9 +24,7 @@ def dispose_all_engines() -> None:
         _ENGINE_CACHE.clear()
 
 
-def get_engine(
-    url: str, *, engine_kwargs: Optional[dict[str, Any]] = None
-) -> Engine:
+def get_engine(url: str, *, engine_kwargs: Optional[dict[str, Any]] = None) -> Engine:
     """
     Return a cached Engine for this URL (thread-safe).
 

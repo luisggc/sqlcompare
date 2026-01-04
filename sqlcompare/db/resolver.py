@@ -128,7 +128,7 @@ def resolve_connection_url(conn_id_or_url: str | None) -> str:
 
     # Step 2: Check if it's a file path (.csv or .xlsx)
     file_path = Path(conn_id_or_url).expanduser()
-    if file_path.exists() and file_path.suffix.lower() in ('.csv', '.xlsx'):
+    if file_path.exists() and file_path.suffix.lower() in (".csv", ".xlsx"):
         # Return DuckDB URL with file path marker
         return f"duckdb:///:memory:?_file_path={file_path.absolute()}"
 

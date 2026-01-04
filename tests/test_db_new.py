@@ -23,8 +23,8 @@ def test_sqlite_multiple_query_shapes():
         with db as dbc:
             # DML -> no rows -> returns None (fetch="auto")
             assert dbc.query("INSERT INTO t1(x) VALUES (1), (2)") is None
-        
-        
+
+
 def test_sqlite_memory_basic_query_shapes():
     db = DBConnection("sqlite:///:memory:")
 
@@ -114,5 +114,3 @@ def test_transaction_rollback_discards_changes_in_file_sqlite():
         with db as dbc:
             rows = dbc.query("SELECT COUNT(*) FROM t1")
             assert rows == [(0,)]
-
-
