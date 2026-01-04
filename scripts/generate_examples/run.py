@@ -49,15 +49,33 @@ def main() -> int:
     for name, config in examples.items():
         if not isinstance(config, dict):
             raise ValueError(f"Example '{name}' must be a mapping.")
+        description = config.get("description")
+        if not description or not isinstance(description, str):
+            raise ValueError(f"Example '{name}' is missing a description string.")
+        title = config.get("title")
+        if not title or not isinstance(title, str):
+            title = name.replace("_", " ").title()
         command = config.get("command")
         if not command or not isinstance(command, str):
             raise ValueError(f"Example '{name}' is missing a command string.")
 
         print(f"Generating example '{name}'...")
         output = _run_command(command, root, env)
-        output_path = root / "examples" / name / "output.txt"
+        markdown_output = "\n".join(
+            [
+                f"# {title}",
+                "",
+                description,
+                "",
+                "```text",
+                output.rstrip("\n"),
+                "```",
+                "",
+            ]
+        )
+        output_path = root / "examples" / f"{name}.md"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(output, encoding="utf-8")
+        output_path.write_text(markdown_output, encoding="utf-8")
 
     return 0
 
