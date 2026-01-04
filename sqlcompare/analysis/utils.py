@@ -1,15 +1,15 @@
-import os
+import csv
 import glob
-import pandas as pd
-from data_toolkit.core.config import load_config, load_test_runs
-from data_toolkit.core.log import log
-from ..db_connection import DBConnection
+import os
+from datetime import datetime
 
-config = load_config()
-tests_folder = f"{config['dtk_dir']}/data_toolkit/db/tests"
+from sqlcompare.config import get_tests_folder, load_test_runs
+from sqlcompare.log import log
+from sqlcompare.utils.format import format_table
 
 
 def find_diff_file(diff_id: str) -> str | None:
+    tests_folder = get_tests_folder()
     pattern = f"{tests_folder}/*/diffs/{diff_id}.pkl"
     matches = glob.glob(pattern)
     if matches:
@@ -41,7 +41,8 @@ def find_diff_run(diff_id: str):
 
 
 def _display(
-    diff_df: pd.DataFrame,
+    columns: list[str],
+    rows: list[tuple],
     column: str | None,
     limit: int,
     save: bool,
@@ -50,74 +51,86 @@ def _display(
     is_stats: bool = False,
     list_columns: bool = False,
 ):
-    # Normalise column naming for easier handling
-    if "Column" not in diff_df.columns:
-        rename_candidates = {}
-        if "COLUMN_NAME" in diff_df.columns:
-            rename_candidates["COLUMN_NAME"] = "Column"
-        if "COLUMN" in diff_df.columns:
-            rename_candidates["COLUMN"] = "Column"
-        if rename_candidates:
-            diff_df = diff_df.rename(columns=rename_candidates)
+    if not columns:
+        log.info("No results returned.")
+        return
 
-    column_field = "Column"
+    column_idx = _column_index(columns, "Column")
+    column_name_idx = _column_index(columns, "COLUMN_NAME")
+    if column_idx is None and column_name_idx is not None:
+        column_idx = column_name_idx
 
     if is_stats:
         log.info(f"\U0001f4ca Statistics for diff ID: {diff_id}")
-        if column:
-            filtered_stats = diff_df[
-                diff_df[column_field].str.contains(column, case=False, na=False)
+        filtered_rows = rows
+        if column and column_idx is not None:
+            column_upper = column.upper()
+            filtered_rows = [
+                row for row in rows if column_upper in str(row[column_idx]).upper()
             ]
-            if filtered_stats.empty:
+            if not filtered_rows:
                 log.info(f"❌ No statistics found for column containing '{column}'")
                 return
-            log.info(filtered_stats.head(limit))
-        else:
-            log.info(diff_df.head(limit))
+        log.info(format_table(columns, filtered_rows[:limit]))
         return
 
-    log.info(f"📂 Loaded diff data: {len(diff_df)} total differences")
+    log.info(f"📂 Loaded diff data: {len(rows)} total differences")
     if list_columns:
-        columns = diff_df[column_field].unique()
-        log.info(f"📋 Available columns ({len(columns)}):")
-        for col in sorted(columns):
-            count = len(diff_df[diff_df[column_field] == col])
-            log.info(f"   {col}: {count} differences")
+        if column_idx is None:
+            log.warning("⚠️  Column metadata not available.")
+            return
+        counts: dict[str, int] = {}
+        for row in rows:
+            col_name = str(row[column_idx])
+            counts[col_name] = counts.get(col_name, 0) + 1
+        log.info(f"📋 Available columns ({len(counts)}):")
+        for col_name in sorted(counts.keys()):
+            log.info(f"   {col_name}: {counts[col_name]} differences")
         return
 
-    if column:
+    filtered_rows = rows
+    if column and column_idx is not None:
         column_upper = column.upper()
-        filtered_df = diff_df[diff_df[column_field].str.upper() == column_upper]
-        if len(filtered_df) == 0:
+        filtered_rows = [
+            row for row in rows if str(row[column_idx]).upper() == column_upper
+        ]
+        if not filtered_rows:
             log.warning(f"⚠️  No differences found for column '{column}'")
             return
-        log.info(f"🔍 Filtered to {len(filtered_df)} differences for column '{column}'")
-    else:
-        filtered_df = diff_df
-
-    display_df = filtered_df.head(limit)
-    log.info(f"📊 Showing {len(display_df)} of {len(filtered_df)} differences:")
-
-    # Limit columns to display to avoid bad formatting
-    if len(display_df.columns) > 10:
-        display_cols = list(display_df.columns[:10])
         log.info(
-            display_df[display_cols].to_string(index=False)
-            + f"\n... and {len(display_df.columns) - 10} more columns"
+            f"🔍 Filtered to {len(filtered_rows)} differences for column '{column}'"
         )
-    else:
-        log.info(display_df.to_string(index=False))
-    if len(filtered_df) > limit:
-        log.info(f"💡 Use --limit {len(filtered_df)} to see all results")
+
+    display_rows = filtered_rows[:limit]
+    log.info(f"📊 Showing {len(display_rows)} of {len(filtered_rows)} differences:")
+    log.info(format_table(columns, display_rows))
+    if len(filtered_rows) > limit:
+        log.info(f"💡 Use --limit {len(filtered_rows)} to see all results")
     if save:
-        timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         column_suffix = f"_{column}" if column else ""
-        output_file = f"analysis_{diff_id}{column_suffix}_{timestamp}.xlsx"
-        filtered_df.to_excel(output_file, index=False)
+        output_file = f"analysis_{diff_id}{column_suffix}_{timestamp}.csv"
+        _write_csv(output_file, columns, filtered_rows)
         log.info(f"💾 Results saved to: {output_file}")
 
 
+def _column_index(columns: list[str], name: str) -> int | None:
+    name_upper = name.upper()
+    for idx, col in enumerate(columns):
+        if col.upper() == name_upper:
+            return idx
+    return None
+
+
+def _write_csv(path: str, columns: list[str], rows: list[tuple]) -> None:
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(columns)
+        writer.writerows(rows)
+
+
 def list_available_diffs():
+    tests_folder = get_tests_folder()
     pattern = f"{tests_folder}/*/diffs/*.pkl"
     matches = glob.glob(pattern)
     diff_ids = []

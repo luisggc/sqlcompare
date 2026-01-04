@@ -1,9 +1,9 @@
 previous:
   file_name: "{{here}}/previous.xlsx"
   index:
-    - ID
+    - id
 
 new:
   file_name: "{{here}}/current.xlsx"
   index:
-    - ID
+    - id

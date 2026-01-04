@@ -1,11 +1,9 @@
 previous:
-  conn: duckdb_test
   select_sql: "SELECT * FROM previous_table"
   index:
     - id
 
 new:
-  conn: duckdb_test
   select_sql: "SELECT * FROM new_table"
   index:
     - id

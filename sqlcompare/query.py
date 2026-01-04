@@ -1,106 +1,71 @@
-import click
-from .db_connection import DBConnection
-from data_toolkit.core.log import log
-from tabulate import tabulate
+import csv
 import re
-import pandas as pd  # Add pandas import
+
+from sqlcompare.db import DBConnection
+from sqlcompare.log import log
 
 
-@click.command()
-@click.argument("q", type=str)
-@click.option(
-    "--connection",
-    "-c",
-    "--conn",
-    "connection",
-    help="Connection name, e.g. snowflake_prod",
-)
-@click.option(
-    "--output",
-    "-o",
-    type=str,
-    default="terminal",
-    help="Output format or file path. Use 'terminal' for console display or provide a filename with .csv or .xlsx extension",
-)
-def query(q, connection, output):
+def query(q: str, connection: str | None, output: str) -> None:
     """
     Execute a query against a specified connection.
 
     Examples:
         # Query Snowflake dev environment and display in terminal
-        dtk db query "SELECT * FROM my_table LIMIT 10"
+        sqlcompare query "SELECT * FROM my_table LIMIT 10"
 
         # Query Databricks prod and save as CSV
-        dtk db query "SELECT * FROM users WHERE id > 100" -c snowflake_dev --output=results.csv
-
-        # Query Snowflake prod and save as Excel file
-        dtk db query "SELECT * FROM users WHERE id > 100" --output=results.xlsx
+        sqlcompare query "SELECT * FROM users WHERE id > 100" -c snowflake_dev --output=results.csv
 
         # Multiline queries
-        dtk db query -c databricks_dev "
+        sqlcompare query -c databricks_dev "
         PASTE YOUR QUERY"
 
         # Postgres example
-        dtk db query -c postgres_prod "SELECT id, number FROM public.loans LIMIT 10"
+        sqlcompare query -c postgres_prod "SELECT id, number FROM public.loans LIMIT 10"
     """
     log.info(f"Connection: {connection}")
     log.info(f"Query: {q}")
 
-    # Connect to the specified connection
     with DBConnection(connection) as db_conn:
-        # Execute the query and get results as DataFrame using pandas.read_sql
-        result_df = pd.read_sql(q, db_conn.engine or db_conn.conn)
+        rows, columns = db_conn.query(q, include_columns=True)
 
-        # Handle output based on the output parameter
-        if output == "terminal":
-            # Print results in a nicely formatted table
-            if result_df is not None and not result_df.empty:
-                print(
-                    tabulate(
-                        result_df, headers="keys", tablefmt="pretty", showindex=False
-                    )
-                )
-                print(f"\nTotal rows: {len(result_df)}")
-            else:
-                print("Query executed successfully. No rows returned.")
+    if output == "terminal":
+        if rows:
+            from tabulate import tabulate
+
+            print(tabulate(rows, headers=columns))
+            print(f"\nTotal rows: {len(rows)}")
         else:
-            # If no extension is provided, infer filename from query
-            if not any(output.lower().endswith(ext) for ext in [".csv", ".xlsx"]):
-                # Extract the first word after SELECT or the table name after FROM
-                match = re.search(
-                    r"(?:SELECT\s+)(\w+)|(?:FROM\s+)(\w+)", q, re.IGNORECASE
-                )
-                if match:
-                    query_identifier = next(
-                        (m for m in match.groups() if m), "query_result"
-                    )
-                else:
-                    query_identifier = "query_result"
+            print("Query executed successfully. No rows returned.")
+        return
 
-                # Use this as the filename base
-                output = f"{query_identifier}"
+    output = _resolve_output_filename(output, q)
+    if not output:
+        return
 
-            # Determine output format based on filename extension
-            if output.lower().endswith(".csv"):
-                if not output.lower().endswith(".csv"):
-                    output += ".csv"
-                result_df.to_csv(output, index=False)
-                log.info(f"Results saved to CSV file: {output}")
-                print(f"Results saved to CSV file: {output}")
-            elif output.lower().endswith(".xlsx"):
-                if not output.lower().endswith(".xlsx"):
-                    output += ".xlsx"
-                # Prepare DataFrame for Excel by removing timezone info
+    with open(output, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(columns)
+        writer.writerows(rows)
+    log.info(f"Results saved to CSV file: {output}")
 
-                for col in result_df.columns:
-                    if pd.api.types.is_datetime64_any_dtype(result_df[col]):
-                        if result_df[col].dt.tz is not None:
-                            result_df[col] = result_df[col].dt.tz_localize(None)
-                result_df.to_excel(output, index=False)
-                log.info(f"Results saved to Excel file: {output}")
-            else:
-                # Default to CSV if extension not recognized
-                output = output + ".csv"
-                result_df.to_csv(output, index=False)
-                log.info(f"Results saved to CSV file: {output}")
-                print(f"Results saved to CSV file: {output}")
+
+def _resolve_output_filename(output: str, query: str) -> str | None:
+    if output.lower().endswith(".xlsx"):
+        log.error("❌ XLSX output is not supported without pandas. Use CSV instead.")
+        return None
+
+    if output.lower().endswith(".csv"):
+        return output
+
+    match = re.search(r"(?:SELECT\s+)(\w+)|(?:FROM\s+)(\w+)", query, re.IGNORECASE)
+    if match:
+        query_identifier = next((m for m in match.groups() if m), "query_result")
+    else:
+        query_identifier = "query_result"
+
+    if "." in output:
+        log.error("❌ Only CSV output is supported without pandas.")
+        return None
+
+    return f"{query_identifier}.csv"

@@ -1,31 +1,22 @@
-import click
-from data_toolkit.core.config import load_config
-from data_toolkit.core.log import log
+import typer
+
+from sqlcompare.config import (
+    get_default_schema
+)
+from sqlcompare.log import log
+
 from .comparator import DatabaseComparator
 
 
-@click.command()
-@click.argument("table1")
-@click.argument("table2")
-@click.argument("ids")
-@click.option("--connection", "-c", help="Database connection name")
-@click.option("--schema", help="Schema for test tables")
-def compare(
+def compare_table(
     table1: str, table2: str, ids: str, connection: str | None, schema: str | None
-):
+) -> None:
     """Compare two tables in the database.
 
     TABLE1 and TABLE2 are the names of the tables to compare.
     IDS is a comma-separated list of column names to use as the unique key.
     """
-    config = load_config()
-    connection = connection or config.get("default_connection")
-    if not connection:
-        raise click.UsageError(
-            "No database connection specified. Use --connection or set default_connection in config."
-        )
-
-    schema = schema or config.get("db_test_schema", "dtk_tests")
+    schema = schema or get_default_schema()
 
     # Parse IDs
     id_cols = [x.strip() for x in ids.split(",")]
@@ -38,7 +29,7 @@ def compare(
     # Run comparison
     comparator = DatabaseComparator(connection)
     diff_id = comparator.compare(table1, table2, id_cols, test_name, schema)
-    log.info(f"🔎 To review the diff, run: dtk db analyze-diff {diff_id}")
+    log.info(f"🔎 To review the diff, run: sqlcompare analyze-diff {diff_id}")
     log.info(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
         "--column <name> to filter, --list-columns to inspect available fields."

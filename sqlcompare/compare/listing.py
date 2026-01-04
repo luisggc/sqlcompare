@@ -1,16 +1,14 @@
-import click
 import glob
 import os
-import pandas as pd
-from data_toolkit.core.config import load_test_runs
-from data_toolkit.core.log import log
-from ..analysis.utils import tests_folder
+
+from datetime import datetime
+
+from sqlcompare.config import get_tests_folder, load_test_runs
+from sqlcompare.log import log
 
 
-@click.argument("pattern", type=str, required=False)
-@click.option("--test", type=str, help="Filter by test name")
-@click.command()
-def list_diffs(pattern, test):
+def list_diffs(pattern: str | None, test: str | None) -> None:
+    tests_folder = get_tests_folder()
     search_pattern = f"{tests_folder}/*/diffs/*.pkl"
     matches = glob.glob(search_pattern)
     filtered_matches = []
@@ -31,7 +29,7 @@ def list_diffs(pattern, test):
             continue
         file_size = os.path.getsize(match)
         file_size_mb = file_size / (1024 * 1024)
-        file_time = pd.to_datetime(os.path.getmtime(match), unit="s")
+        file_time = datetime.fromtimestamp(os.path.getmtime(match))
         filtered_matches.append((diff_id, test_name, file_size_mb, file_time))
 
     for run_id, run in runs.items():
@@ -39,7 +37,7 @@ def list_diffs(pattern, test):
             continue
         if test and test.lower() not in run.get("conn", "").lower():
             continue
-        filtered_matches.append((run_id, run.get("conn", "db"), 0, pd.Timestamp.now()))
+        filtered_matches.append((run_id, run.get("conn", "db"), 0, datetime.now()))
 
     if not filtered_matches:
         log.info("📭 No diff data found matching your criteria.")

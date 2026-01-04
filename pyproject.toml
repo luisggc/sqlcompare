@@ -1,21 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "sqlcompare"
-version = "0.1.0"
+version = "0.0.1"
 description = "CLI for comparing tables and sql queries"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
+  "pyyaml>=6.0.0",
   "rich>=14.2.0",
+  "SQLAlchemy>=2.0.0",
+  "tabulate>=0.9.0",
   "typer>=0.21.0",
+  "duckdb>=1.0.0",
+  "duckdb-sqlalchemy>=0.10.0",
+  # "duckdb-extension-excel>=0.0.0"
+]
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+  {name = "Luis Coimbra"}
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "duckdb",
   "pytest>=8.0.0",
+]
+postgres = [
+  "psycopg[binary]>=3.1.0",
+]
+mysql = [
+  "pymysql>=1.0.0",
+]
+snowflake = [
+  "snowflake-sqlalchemy>=1.5.0",
+]
+databricks = [
+  "databricks-sql-connector>=3.0.0",
+]
+duckdb = [
+  "duckdb>=1.0.0",
+  "duckdb-engine>=0.10.0",
+  "duckdb-extension-excel>=0.0.0",
+]
+mssql = [
+  "pyodbc>=5.0.0",
+]
+oracle = [
+  "oracledb>=2.0.0",
+]
+all = [
+  "psycopg[binary]>=3.1.0",
+  "pymysql>=1.0.0",
+  "snowflake-sqlalchemy>=1.5.0",
+  "databricks-sql-connector>=3.0.0",
+  "duckdb>=1.0.0",
+  "duckdb-engine>=0.10.0",
+  "pyodbc>=5.0.0",
+  "oracledb>=2.0.0",
 ]
 
 [project.scripts]
 sqlcompare = "sqlcompare.cli:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["sqlcompare"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["sqlcompare"]
+
 [tool.uv]
 package = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

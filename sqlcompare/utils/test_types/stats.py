@@ -1,11 +1,18 @@
 import os
-import pandas as pd
-from data_toolkit.core.log import log
+
+from sqlcompare.log import log
 
 possible_stats = {"diff": lambda x, y: y - x, "diff%": lambda x, y: 100 * (y - x) / x}
 
 
 def test_stats(df_previous, df_current, test_config, save):
+    try:
+        import pandas as pd
+    except ImportError:
+        log.error(
+            "❌ pandas is required for stats tests. Install it to use this feature."
+        )
+        return
     common_columns = df_current.columns.intersection(df_previous.columns)
     index_cols = [*df_previous.attrs["index_cols"], *df_current.attrs["index_cols"]]
     common_columns = [column for column in common_columns if column not in index_cols]

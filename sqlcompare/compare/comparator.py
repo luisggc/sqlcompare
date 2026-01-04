@@ -3,9 +3,11 @@ from datetime import datetime
 from typing import Any, Sequence
 
 from contextlib import nullcontext
-from data_toolkit.db.db_connection import DBConnection
-from data_toolkit.core.config import load_test_runs, save_test_runs
-from data_toolkit.core.log import log
+
+from sqlcompare.config import load_test_runs, save_test_runs
+from sqlcompare.db import DBConnection
+from sqlcompare.log import log
+from sqlcompare.utils.format import format_table
 
 
 class DatabaseComparator:
@@ -19,12 +21,12 @@ class DatabaseComparator:
         self.cols_new: list[str] = []
         self.common_cols: list[str] = []
 
-    def _ensure_schema(self, cur, test_schema: str) -> None:
+    def _ensure_schema(self, db: DBConnection, test_schema: str) -> None:
         """Ensure the test schema exists without changing the database context permanently."""
         try:
             # Try direct creation first. Snowflake and DuckDB often support CREATE SCHEMA IF NOT EXISTS schema_name
             # even if it's already in the name (e.g. database.schema)
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {test_schema}")
+            db.execute(f"CREATE SCHEMA IF NOT EXISTS {test_schema}")
             log.info(f"✅ Ensured schema '{test_schema}' exists")
         except Exception as e:
             # Fallback for cases where full qualification in CREATE SCHEMA is not supported or needs db switch
@@ -35,36 +37,21 @@ class DatabaseComparator:
                 if "." in test_schema:
                     db_name, schema_name = test_schema.split(".", 1)
                     # Use absolute path if possible
-                    cur.execute(f"CREATE SCHEMA IF NOT EXISTS {db_name}.{schema_name}")
+                    db.execute(f"CREATE SCHEMA IF NOT EXISTS {db_name}.{schema_name}")
                 else:
-                    cur.execute(f"CREATE SCHEMA IF NOT EXISTS {test_schema}")
+                    db.execute(f"CREATE SCHEMA IF NOT EXISTS {test_schema}")
                 log.info(f"✅ Ensured schema '{test_schema}' exists")
             except Exception as e2:
                 log.warning(f"Could not create schema '{test_schema}': {e2}")
 
-    def _get_to_df(self, connection: Any):
-        """Get a function to convert query results to a DataFrame."""
-        if hasattr(connection, "to_df"):
-            return connection.to_df
 
-        def _to_df(query, conn=connection):
-            import pandas as pd
-            import warnings
-
-            # Detect if it's duckdb connection
-            is_duckdb = "duckdb" in str(type(conn)).lower()
-            if is_duckdb:
-                # Handle connection object or DBConnection wrapper
-                c = conn.conn if hasattr(conn, "conn") else conn
-                return c.execute(query).df()
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", message=".*pandas only supports SQLAlchemy connectable.*"
-                )
-                c = conn.conn if hasattr(conn, "conn") else conn
-                return pd.read_sql(query, c)
-
-        return _to_df
+    def _sort_rows(
+        self, columns: list[str], rows: list[tuple], sort_col: str | None
+    ) -> list[tuple]:
+        if not sort_col or sort_col not in columns:
+            return rows
+        idx = columns.index(sort_col)
+        return sorted(rows, key=lambda row: (row[idx] is None, row[idx]))
 
     @classmethod
     def from_saved(
@@ -170,7 +157,7 @@ class DatabaseComparator:
         new_table: str,
         index_cols: Sequence[str],
         test_name: str,
-        test_schema: str = "dtk_tests",
+        test_schema: str = "sqlcompare",
     ) -> str:
         """Compare two tables in the database."""
         if not index_cols:
@@ -181,43 +168,43 @@ class DatabaseComparator:
         self.index_cols = [c.upper() for c in index_cols]
 
         diff_id = f"{test_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-        base = f"dtk_test_{diff_id}"
+        base = f"sqlcompare_{diff_id}"
 
-        # Qualify table names with schema for the join table
-        schema_prefix = f"{test_schema}." if test_schema else ""
-        join_table = f"{schema_prefix}{base}_join"
-
-        tables = {
-            "previous": prev_table,
-            "new": new_table,
-            "join": join_table,
-        }
-        self.tables = tables
-
-        ctx = (
-            DBConnection(self.connection)
-            if isinstance(self.connection, str)
-            else nullcontext(self.connection)
-        )
+        ctx = DBConnection(self.connection)
         with ctx as db:
-            to_df_func = self._get_to_df(db)
-            conn = db.conn if hasattr(db, "conn") else db
-            cur = conn.cursor()
+            # Qualify table names with schema for the join table.
+            schema_prefix = f"{test_schema}." if test_schema else ""
+            if test_schema and isinstance(self.connection, str):
+                # Check if connection might be DuckDB
+                if "duckdb" in self.connection.lower() and "." not in test_schema:
+                    try:
+                        result = db.query("PRAGMA database_list")
+                        catalog_name = result[0][1] if result and result[0] else None
+                        if catalog_name:
+                            schema_prefix = f"{catalog_name}.{test_schema}."
+                    except Exception:
+                        pass
+
+            join_table = f"{schema_prefix}{base}_join"
+            tables = {
+                "previous": prev_table,
+                "new": new_table,
+                "join": join_table,
+            }
+            self.tables = tables
 
             # Create schema for the join table if it doesn't exist
             if test_schema:
-                self._ensure_schema(cur, test_schema)
+                self._ensure_schema(db, test_schema)
 
             try:
-                cur.execute(f"DROP TABLE IF EXISTS {tables['join']}")
+                db.execute(f"DROP TABLE IF EXISTS {tables['join']}")
             except Exception:
                 pass
 
             # Get column names from pre-existing tables
-            cur.execute(f"SELECT * FROM {tables['previous']} WHERE 1=0")
-            cols_prev = [c[0] for c in cur.description]
-            cur.execute(f"SELECT * FROM {tables['new']} WHERE 1=0")
-            cols_new = [c[0] for c in cur.description]
+            _, cols_prev = db.query(f"SELECT * FROM {tables['previous']} WHERE 1=0", include_columns=True)
+            _, cols_new = db.query(f"SELECT * FROM {tables['new']} WHERE 1=0", include_columns=True)
             self.cols_prev = cols_prev
             self.cols_new = cols_new
 
@@ -276,18 +263,18 @@ class DatabaseComparator:
 
             log.info(f"Joining tables: {tables['previous']} and {tables['new']}")
 
-            cur.execute(join_sql)
+            db.execute(join_sql)
 
             cond_prev = " AND ".join(
                 [f'"{c}_previous" IS NULL' for c in self.index_cols]
             )
-            cur.execute(
+            result = db.query(
                 "SELECT COUNT(*) FROM " + tables["join"] + " WHERE " + cond_prev
             )
-            missing_prev = cur.fetchone()[0]
+            missing_prev = result[0][0] if result else 0
             cond_new = " AND ".join([f'"{c}_new" IS NULL' for c in self.index_cols])
-            cur.execute("SELECT COUNT(*) FROM " + tables["join"] + " WHERE " + cond_new)
-            missing_new = cur.fetchone()[0]
+            result = db.query("SELECT COUNT(*) FROM " + tables["join"] + " WHERE " + cond_new)
+            missing_new = result[0][0] if result else 0
             if missing_prev:
                 log.info(f"Rows only in current dataset: {missing_prev}")
                 sample_q = (
@@ -295,22 +282,11 @@ class DatabaseComparator:
                     + ", ".join([f'"{c}_new" AS "{c}"' for c in self.cols_new])
                     + f" FROM {tables['join']} WHERE {cond_prev} LIMIT 5"
                 )
-                df_prev = to_df_func(sample_q)
-                df_fmt = df_prev
-                if self.index_cols and self.index_cols[0] in df_fmt.columns:
-                    df_fmt = df_fmt.sort_values(self.index_cols[0]).reset_index(
-                        drop=True
-                    )
-
-                # Limit columns to display to avoid bad formatting
-                if len(df_fmt.columns) > 10:
-                    display_cols = list(df_fmt.columns[:10])
-                    log.info(
-                        df_fmt[display_cols].to_string(index=False)
-                        + f"\n... and {len(df_fmt.columns) - 10} more columns"
-                    )
-                else:
-                    log.info(df_fmt.to_string(index=False))
+                rows, columns = db.query(sample_q, include_columns=True)
+                rows = self._sort_rows(
+                    columns, rows, self.index_cols[0] if self.index_cols else None
+                )
+                log.info(format_table(columns, rows))
             else:
                 log.info("No rows only in current dataset")
 
@@ -321,29 +297,18 @@ class DatabaseComparator:
                     + ", ".join([f'"{c}_previous" AS "{c}"' for c in self.cols_prev])
                     + f" FROM {tables['join']} WHERE {cond_new} LIMIT 5"
                 )
-                df_new = to_df_func(sample_q)
-                df_fmt = df_new
-                if self.index_cols and self.index_cols[0] in df_fmt.columns:
-                    df_fmt = df_fmt.sort_values(self.index_cols[0]).reset_index(
-                        drop=True
-                    )
-
-                # Limit columns to display to avoid bad formatting
-                if len(df_fmt.columns) > 10:
-                    display_cols = list(df_fmt.columns[:10])
-                    log.info(
-                        df_fmt[display_cols].to_string(index=False)
-                        + f"\n... and {len(df_fmt.columns) - 10} more columns"
-                    )
-                else:
-                    log.info(df_fmt.to_string(index=False))
+                rows, columns = db.query(sample_q, include_columns=True)
+                rows = self._sort_rows(
+                    columns, rows, self.index_cols[0] if self.index_cols else None
+                )
+                log.info(format_table(columns, rows))
             else:
                 log.info("No rows only in previous dataset")
 
             diff_sql = self.get_diff_query()
             if diff_sql:
-                cur.execute(f"SELECT COUNT(*) FROM ({diff_sql})")
-                diff_total = cur.fetchone()[0]
+                result = db.query(f"SELECT COUNT(*) FROM ({diff_sql})")
+                diff_total = result[0][0] if result else 0
                 log.info(
                     f"\U0001f6a8 Differences in values for common rows: {diff_total} rows in total"
                 )
@@ -352,22 +317,22 @@ class DatabaseComparator:
                 if self.common_cols:
                     log.info("\n📊 Difference statistics by column:")
                     stats_sql = self.get_stats_query()
-                    df_stats = to_df_func(stats_sql)
-                    # Support both lowercase and uppercase results from DB
-                    df_stats.columns = [c.upper() for c in df_stats.columns]
-                    df_stats = df_stats.rename(
-                        columns={"COLUMN_NAME": "Column", "DIFF_COUNT": "Differences"}
-                    )
-
-                    # Only show columns with differences
-                    diff_stats = df_stats[df_stats["Differences"] > 0]
-                    no_diff_cols = df_stats[df_stats["Differences"] == 0][
-                        "Column"
-                    ].tolist()
-
-                    if not diff_stats.empty:
-                        log.info(diff_stats.to_string(index=False))
-
+                    rows, columns = db.query(stats_sql, include_columns=True)
+                    col_lookup = {col.upper(): idx for idx, col in enumerate(columns)}
+                    col_name_idx = col_lookup.get("COLUMN_NAME")
+                    diff_count_idx = col_lookup.get("DIFF_COUNT")
+                    diff_rows = []
+                    no_diff_cols = []
+                    for row in rows:
+                        diff_count = (
+                            row[diff_count_idx] if diff_count_idx is not None else 0
+                        )
+                        if diff_count and diff_count > 0:
+                            diff_rows.append(row)
+                        elif col_name_idx is not None:
+                            no_diff_cols.append(str(row[col_name_idx]))
+                    if diff_rows:
+                        log.info(format_table(columns, diff_rows))
                     if no_diff_cols:
                         log.info(
                             f"\n✅ Columns with no differences: {', '.join(no_diff_cols)}"
@@ -375,25 +340,11 @@ class DatabaseComparator:
 
                 log.info("\n📋 Sample differences (first 10 rows):")
                 sample_q = f"SELECT * FROM ({diff_sql}) t LIMIT 10"
-                df_sample = to_df_func(sample_q)
-                # Support both lowercase and uppercase results from DB
-                df_sample.columns = [c.upper() for c in df_sample.columns]
-                rename = {"COLUMN": "Column", "BEFORE": "Before", "CURRENT": "Current"}
-                df_fmt = df_sample.rename(columns=rename)
-                if self.index_cols and self.index_cols[0] in df_fmt.columns:
-                    df_fmt = df_fmt.sort_values(self.index_cols[0]).reset_index(
-                        drop=True
-                    )
-
-                # Limit columns to display to avoid bad formatting
-                if len(df_fmt.columns) > 10:
-                    display_cols = list(df_fmt.columns[:10])
-                    log.info(
-                        df_fmt[display_cols].to_string(index=False)
-                        + f"\n... and {len(df_fmt.columns) - 10} more columns"
-                    )
-                else:
-                    log.info(df_fmt.to_string(index=False))
+                rows, columns = db.query(sample_q, include_columns=True)
+                rows = self._sort_rows(
+                    columns, rows, self.index_cols[0] if self.index_cols else None
+                )
+                log.info(format_table(columns, rows))
             else:
                 log.info("0 rows in total")
 
@@ -416,6 +367,6 @@ class DatabaseComparator:
         save_test_runs(runs)
 
         log.debug(f"\U0001f4c1 Analysis data saved with ID: {diff_id}")
-        log.debug(f"Use 'dtk db analyze-diff {diff_id}' to review differences")
+        log.debug(f"Use 'sqlcompare analyze-diff {diff_id}' to review differences")
 
         return diff_id

@@ -1,9 +1,5 @@
-from data_toolkit.core.log import log
-from data_toolkit.core.config import (
-    load_test_runs,
-    save_test_runs,
-    DB_TEST_DB,
-)
+from sqlcompare.config import DB_TEST_DB, load_test_runs, save_test_runs
+from sqlcompare.log import log
 import os
 import uuid
 from datetime import datetime
@@ -34,6 +30,13 @@ def _column_diff_query(column: str, index_cols: list[str], join_table: str) -> s
 
 
 def test_row(df_previous, df_current, top_diff, test_config, save):
+    try:
+        import pandas as pd  # noqa: F401
+    except ImportError:
+        log.error(
+            "❌ pandas is required for row tests. Install it to use this feature."
+        )
+        return
     log.info("Comparing...")
 
     for df in (df_previous, df_current):
@@ -42,7 +45,7 @@ def test_row(df_previous, df_current, top_diff, test_config, save):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     test_id = f"{test_config['test_name']}_{timestamp}_{uuid.uuid4().hex[:8]}"
-    base = f"dtk_test_{test_id}"
+    base = f"sqlcompare_{test_id}"
     tables = {
         "previous": f"{base}_previous",
         "new": f"{base}_new",
@@ -192,7 +195,7 @@ def test_row(df_previous, df_current, top_diff, test_config, save):
     log.info(f"📁 Analysis data saved with ID: {test_id}")
     log.info("💡 To analyze specific columns from this diff, run:")
     log.info(
-        f"   dtk db analyze-diff {test_id} --limit 100 --column {column_with_most_diffs}"
+        f"   sqlcompare analyze-diff {test_id} --limit 100 --column {column_with_most_diffs}"
     )
     log.info("")
 

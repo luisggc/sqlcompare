@@ -1,111 +1,144 @@
-README
+# SQLCompare
 
-Compare CLI
+Professional CLI for comparing datasets across database tables.
 
-Overview
-The compare CLI command compares two database tables row-by-row using one or more
-identifier columns as a composite key. It creates a join table in a test schema,
-computes differences across common columns, and stores a diff run ID you can
-inspect later with the analyze-diff command.
+SQLCompare performs row-level comparisons between a "previous" and "current" dataset using a composite key, materializes a join table in a comparison schema, computes column-level differences, and stores a diff run ID for repeatable analysis.
 
-sqlcompare/compare/comparator.py
+## Key Features
+- Compare tables or dataset queries using composite keys.
+- Persist comparison runs with metadata for later analysis.
+- Generate per-column stats, missing-row checks, and samples of differences.
+- Designed for repeatable CLI workflows in data engineering and QA.
 
-Command signature
+## Installation
+Use your project setup and dependency manager of choice. For local development:
+
+```bash
+uv sync --extra dev
+```
+
+## Quick Start
+Compare two tables on a single key:
+
+```bash
+sqlcompare table analytics.fact_sales analytics.fact_sales_new id
+```
+
+Compare using a composite key:
+
+```bash
+sqlcompare table analytics.users analytics.users_new user_id,tenant_id
+```
+
+Use a named connector and custom schema:
+
+```bash
+sqlcompare table public.orders public.orders_latest order_id -c prod --schema sqlcompare
+```
+
+Follow up with analysis:
+
+```bash
+sqlcompare report <diff_id> --stats
+sqlcompare report <diff_id> --column revenue --limit 100
+sqlcompare report <diff_id> --missing-current
+```
+
+## Command Reference
+
+### Compare tables
+
+```bash
 sqlcompare table TABLE1 TABLE2 IDS [--connection/-c CONNECTION] [--schema SCHEMA]
+```
 
-Arguments
-- TABLE1
-  Name of the "previous" table to compare. This is passed directly to SQL.
-  You can supply a fully qualified name, for example: analytics.schema.table.
-- TABLE2
-  Name of the "current" table to compare. This is passed directly to SQL.
-- IDS
-  Comma-separated list of column names used as the unique key. Example: id
-  or id,sub_id. Whitespace around commas is stripped.
+#### Arguments
+- `TABLE1`: Fully qualified name of the "previous" table to compare. Passed directly to SQL (example: `analytics.schema.table`).
+- `TABLE2`: Fully qualified name of the "current" table to compare. Passed directly to SQL.
+- `IDS`: Comma-separated list of columns that uniquely identify a row (example: `id` or `id,sub_id`). Whitespace around commas is stripped.
 
-Options
-- --connection, -c
-  Name of a connection profile to use. If omitted, the command reads
-  default_connection from the main config file.
-- --schema
-  Schema used to store the join table created for the comparison. If omitted,
-  it uses db_test_schema from the config (default: dtk_tests).
+#### Options
+- `--connection`, `-c`: Name of a connector profile to use. If omitted, SQLCompare reads the default connector from configuration.
+- `--schema`: Schema used to store the join table created for the comparison. If omitted, it uses the configured comparison schema.
 
-Configuration defaults
-we can get the default value for the comparison schema in SQLCOMPARE_COMPARISON_SCHEMA. This is used to store the comparison table.
-connection default should be SQLCOMPARE_CONN_DEFAULT.
-Any conn we get from SQLCOMPARE_CONN_{NAME} . So we can use -c {NAME}.
-This conn varibale contains the proper sql alchemy url that we are going to use behid the scenes to perform the queries.
+## Configuration
+SQLCompare is configured through environment variables:
 
-What the command does (high level)
-1) Load configuration and resolve connection and schema.
-2) Parse IDS into a list of index columns.
-3) Create a unique test name and diff ID.
-4) Use DatabaseComparator to:
+- `SQLCOMPARE_COMPARISON_SCHEMA`:
+  Schema used for storing comparison tables.
+- `SQLCOMPARE_CONN_DEFAULT`:
+  Name of the default connector profile.
+- `SQLCOMPARE_CONN_{NAME}`:
+  SQLAlchemy URL for a named connector profile. Use with `-c {NAME}`.
+
+## How It Works
+
+1) Resolve configuration, connector, and comparison schema.
+2) Parse `IDS` into a list of index columns.
+3) Create a unique comparison name and diff ID.
+4) Use `DatabaseComparator` to:
    - Verify index columns exist in both tables (case-insensitive match).
-   - Create a join table in the target schema using a FULL OUTER JOIN.
-   - Count rows present only in the current or previous table.
-   - Compute per-column differences on common columns.
-   - Store metadata for later analysis (diff ID).
-5) Print a brief summary and the command to analyze the diff.
+   - Create a `FULL OUTER JOIN` table in the comparison schema.
+   - Count rows present only in either table.
+   - Compute per-column differences for shared columns.
+   - Persist metadata for later analysis.
+5) Emit a summary and a follow-up report command.
 
-Diff IDs and persisted metadata
-The comparator stores each run in ~/.config/data-toolkit/db_test_runs.yaml with:
-- tables: mapping of previous, new, and join table names
-- index_cols: resolved index columns (casing as found in the DB)
-- cols_prev / cols_new: column lists for each table
-- conn: connection name (or duckdb for file-based runs)
+## Diff IDs and Metadata
+Each run is recorded in:
 
-The diff ID format is:
+```
+~/.config/sqlcompare/db_test_runs.yaml
+```
+
+The record includes:
+- `tables`: mapping of previous, current, and join table names
+- `index_cols`: resolved index columns (as found in the database)
+- `cols_prev` / `cols_new`: column lists for each table
+- `conn`: connector name (or `duckdb` for file-based runs)
+
+Diff ID format:
+
+```
 compare_{table1}_{table2}_{timestamp}_{random}
-where table names are sanitized to alphanumeric plus underscores for safety.
+```
 
-Output and logs
-The CLI logs a small report to stdout (via data_toolkit.core.log), including:
+Table names are sanitized to alphanumeric plus underscores.
+
+## Output Summary
+The CLI prints a concise report to stdout (via `data_toolkit.core.log`), including:
 - Missing rows in either table (based on null key columns in the join table).
 - Total number of value differences across common rows.
-- Per-column difference counts (if common columns exist).
+- Per-column difference counts (when common columns exist).
 - A sample of the first 10 differences.
-- A follow-up command to inspect the diff:
-  dtk report <diff_id>
+- A follow-up command to inspect the diff (`sqlcompare report <diff_id>`).
 
-How differences are computed (details)
-DatabaseComparator builds a join table with the following shape:
-- For every column in TABLE1: column_previous
-- For every column in TABLE2: column_new
-It uses a FULL OUTER JOIN on the provided IDS.
+## Difference Detection
+
+`DatabaseComparator` builds a join table with the following shape:
+- For every column in `TABLE1`: `column_previous`
+- For every column in `TABLE2`: `column_new`
+
+It uses a `FULL OUTER JOIN` on the provided `IDS`.
 
 Differences are detected when:
 - The row exists on both sides (key columns are not null in both).
-- A common column does not match (or one side is NULL and the other is not).
+- A common column does not match (or one side is `NULL` and the other is not).
 
-Queries used for analysis are generated on-demand by DatabaseComparator:
-- get_diff_query: per-row differences across all common columns
-- get_stats_query: counts of differences per column
-- get_in_current_only_query / get_in_previous_only_query: missing-row checks
+Analysis queries are generated on-demand:
+- `get_diff_query`: per-row differences across all common columns
+- `get_stats_query`: counts of differences per column
+- `get_in_current_only_query` / `get_in_previous_only_query`: missing-row checks
 
-Examples
-Compare two tables on a single key:
-sqlcompare table analytics.fact_sales analytics.fact_sales_new id
+## Operational Notes
+- The command creates a physical join table in the comparison schema. Ensure the connector has `CREATE SCHEMA` and `CREATE TABLE` privileges.
+- Table names are passed through directly to SQL. Provide fully-qualified or quoted names when required by your database.
+- Index columns must exist in both tables; otherwise the command fails with a clear error that includes a sample of available columns.
 
-Compare using a composite key:
-sqlcompare table analytics.users analytics.users_new user_id,tenant_id
+## Development
 
-Use an explicit connection and custom schema:
-sqlcompare table public.orders public.orders_latest order_id -c prod --schema dtk_tmp
+Run tests:
 
-Follow up with analysis:
-dtk report <diff_id> --stats
-dtk report <diff_id> --column revenue --limit 100
-dtk report <diff_id> --missing-current
-
-file in sqlcompare/compare/analyze.py
-
-Operational notes
-- The command creates a physical join table in the configured schema. Ensure
-  the connection has CREATE SCHEMA and CREATE TABLE privileges as needed.
-- Table names are passed through directly to SQL. Provide fully-qualified or
-  quoted names when required by your database.
-- Index columns must exist in both tables; otherwise the command fails with a
-  clear error that includes a sample of available columns.
-
+```bash
+uv run pytest
+```

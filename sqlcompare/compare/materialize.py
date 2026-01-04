@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Any, Sequence
 import uuid
 
-from data_toolkit.db.db_connection import DBConnection
-from data_toolkit.core.log import log
+from sqlcompare.db import DBConnection
+from sqlcompare.log import log
 from .comparator import DatabaseComparator
 
 
@@ -14,7 +14,7 @@ def compare_queries_in_db(
     index_cols: Sequence[str],
     connection: Any,
     test_name: str,
-    test_schema: str = "dtk_tests",
+    test_schema: str = "sqlcompare",
 ) -> str:
     """Compatibility wrapper for DatabaseComparator. Materializes queries first."""
     ctx = (

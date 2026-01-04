@@ -1,14 +1,3 @@
-import click
-from .test import test
-from .query import query
+__all__ = ["__version__"]
 
-
-@click.group()
-def db():
-    """Postgres functions to be implemented."""
-
-
-db.add_command(test)
-db.add_command(query)
-
-__all__ = ["db", "add", "analyze_diff", "list_diffs", "connections"]
+__version__ = "0.1.0"
