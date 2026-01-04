@@ -133,5 +133,50 @@ def dataset_cmd(
         None, "--schema", help="Schema for dataset tables"
     ),
 ) -> None:
-    """Compare datasets defined in YAML configuration file."""
+    """Compare datasets defined in YAML configuration.
+
+    Supports comparing:
+    - SQL queries (select_sql)
+    - CSV/XLSX files (file_name)
+    - Mix of both
+
+    YAML Format:
+        previous:
+          select_sql: "SELECT * FROM users WHERE created < '2024-01-01'"
+          index:
+            - user_id
+
+        new:
+          select_sql: "SELECT * FROM users WHERE created >= '2024-01-01'"
+          index:
+            - user_id
+
+        # Or with files
+        previous:
+          file_name: "{{here}}/previous.csv"
+          index:
+            - customer_id
+            - order_id
+
+        new:
+          file_name: "{{here}}/current.xlsx"
+          index:
+            - customer_id
+            - order_id
+
+    Examples:
+        # Compare using dataset config
+        sqlcompare dataset configs/migration_check.yaml
+
+        # Override connection from YAML
+        sqlcompare dataset configs/validation.yaml -c snowflake_prod
+
+        # Use {{here}} in YAML for relative file paths
+        # {{here}} expands to the directory containing the YAML file
+
+    Notes:
+        - index columns must match between previous and new
+        - Both sides must use the same connection (or files)
+        - Use 'conn' or 'connection' key in YAML to specify database
+    """
     compare_dataset(path, connection, schema)

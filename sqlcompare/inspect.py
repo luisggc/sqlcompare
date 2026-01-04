@@ -15,7 +15,7 @@ from sqlcompare.db import DBConnection
 from sqlcompare.log import log
 
 
-def analyze_diff(
+def inspect_diff(
     diff_id: str,
     column: str | None = None,
     limit: int = 25,
@@ -26,7 +26,7 @@ def analyze_diff(
     missing_previous: bool = False,
 ) -> None:
     """
-    Analyze diff results from a previous comparison run.
+    Inspect diff results from a previous comparison run.
 
     Supports database-backed diffs and legacy pickle files.
     """
@@ -201,7 +201,7 @@ def analyze_diff(
     log.error("❌ Pickle-based diff files are not supported without pandas.")
 
 
-def analyze_diff_cmd(
+def inspect_cmd(
     diff_id: str = typer.Argument(..., help="Diff run ID"),
     column: str | None = typer.Option(
         None, "--column", "-c", help="Filter by specific column name"
@@ -223,8 +223,35 @@ def analyze_diff_cmd(
         False, "--missing-previous", help="Show rows only in previous dataset"
     ),
 ) -> None:
-    """Analyze diff results from a previous comparison run."""
-    analyze_diff(
+    """Inspect results from a previous comparison.
+
+    After running 'table' or 'dataset' comparison, use this command to analyze
+    the saved diff results. You can view statistics, filter by column, examine
+    missing rows, or export results.
+
+    Examples:
+        # View diff summary with statistics
+        sqlcompare inspect <diff_id> --stats
+
+        # Filter differences for specific column
+        sqlcompare inspect <diff_id> --column revenue
+
+        # Show rows only in current dataset
+        sqlcompare inspect <diff_id> --missing-current
+
+        # Show rows only in previous dataset
+        sqlcompare inspect <diff_id> --missing-previous
+
+        # List all available columns
+        sqlcompare inspect <diff_id> --list-columns
+
+        # Show more results
+        sqlcompare inspect <diff_id> --limit 100
+
+        # Save filtered results to CSV
+        sqlcompare inspect <diff_id> --column price --save
+    """
+    inspect_diff(
         diff_id,
         column=column,
         limit=limit,

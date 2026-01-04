@@ -44,7 +44,7 @@ def test_analyze_diff_stats_and_list_columns(tmp_path, monkeypatch) -> None:
     stats_result = runner.invoke(
         app,
         [
-            "analyze-diff",
+            "inspect",
             diff_id,
             "--stats",
             "--column",
@@ -56,7 +56,7 @@ def test_analyze_diff_stats_and_list_columns(tmp_path, monkeypatch) -> None:
     assert stats_result.exit_code == 0, stats_result.output
     assert "Statistics for diff ID" in stats_result.output
 
-    list_result = runner.invoke(app, ["analyze-diff", diff_id, "--list-columns"])
+    list_result = runner.invoke(app, ["inspect", diff_id, "--list-columns"])
     assert list_result.exit_code == 0, list_result.output
     assert "Available columns" in list_result.output
 
@@ -69,7 +69,7 @@ def test_analyze_diff_save_and_missing_filters(tmp_path, monkeypatch) -> None:
         save_result = runner.invoke(
             app,
             [
-                "analyze-diff",
+                "inspect",
                 diff_id,
                 "--column",
                 "value",
@@ -83,12 +83,12 @@ def test_analyze_diff_save_and_missing_filters(tmp_path, monkeypatch) -> None:
         saved = list(Path.cwd().glob("analysis_*.csv"))
         assert saved
 
-    missing_current = runner.invoke(app, ["analyze-diff", diff_id, "--missing-current"])
+    missing_current = runner.invoke(app, ["inspect", diff_id, "--missing-current"])
     assert missing_current.exit_code == 0, missing_current.output
     assert "Loaded diff data" in missing_current.output
 
     missing_previous = runner.invoke(
-        app, ["analyze-diff", diff_id, "--missing-previous"]
+        app, ["inspect", diff_id, "--missing-previous"]
     )
     assert missing_previous.exit_code == 0, missing_previous.output
     assert "Loaded diff data" in missing_previous.output

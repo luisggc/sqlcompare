@@ -372,6 +372,6 @@ class DatabaseComparator:
         save_test_runs(runs)
 
         log.debug(f"\U0001f4c1 Analysis data saved with ID: {diff_id}")
-        log.debug(f"Use 'sqlcompare analyze-diff {diff_id}' to review differences")
+        log.debug(f"Use 'sqlcompare inspect {diff_id}' to review differences")
 
         return diff_id

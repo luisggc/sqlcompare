@@ -37,7 +37,7 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "analyze-diff" in result.output
+    assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
 
@@ -57,6 +57,6 @@ def test_table_command_with_files(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "analyze-diff" in result.output
+    assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1

@@ -45,6 +45,6 @@ Rows only in previous dataset: 1
 | 1  |  name  | alpha  |  alfa   |
 | 1  | amount |   10   |   11    |
 +----+--------+--------+---------+
-🔎 To review the diff, run: sqlcompare analyze-diff compare_sqlcompare_dataset_dataset_998aa249_previous_sqlcompare_dataset_dataset_998aa249_new_20260104_025829_b28946b5
+🔎 To review the diff, run: sqlcompare inspect compare_sqlcompare_dataset_dataset_998aa249_previous_sqlcompare_dataset_dataset_998aa249_new_20260104_025829_b28946b5
 💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, --column <name> to filter, --list-columns to inspect available fields.
 ```

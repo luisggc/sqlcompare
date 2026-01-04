@@ -116,7 +116,7 @@ def test_dataset_command_with_yaml_dataset(tmp_path: Path, monkeypatch) -> None:
         ],
     )
     assert result.exit_code == 0, result.output
-    assert "analyze-diff" in result.output
+    assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
 
@@ -132,7 +132,7 @@ def test_dataset_command_file_name_without_connection(
     result = runner.invoke(app, ["dataset", str(dataset_path)])
 
     assert result.exit_code == 0, result.output
-    assert "analyze-diff" in result.output
+    assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
 

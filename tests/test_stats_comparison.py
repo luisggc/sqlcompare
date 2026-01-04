@@ -24,14 +24,11 @@ def test_table_command_with_stats(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
-            "table",
+            "stats",
             "previous",
             "current",
             "--connection",
             "duckdb_test",
-            "--schema",
-            "analysis_schema",
-            "--stats",
         ],
     )
 
@@ -80,10 +77,9 @@ def test_table_command_with_stats_from_files() -> None:
     result = runner.invoke(
         app,
         [
-            "table",
+            "stats",
             str(prev_path),
             str(curr_path),
-            "--stats",
         ],
     )
 

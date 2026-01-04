@@ -57,7 +57,7 @@ def query(q: str, connection: str | None, output: str) -> None:
 def query_cmd(
     q: str = typer.Argument(..., help="SQL query to run"),
     connection: str | None = typer.Option(
-        None, "--connection", "-c", "--conn", help="Connector name"
+        None, "--connection", "-c", help="Database connector name"
     ),
     output: str = typer.Option(
         "terminal",
@@ -66,5 +66,28 @@ def query_cmd(
         help="Output format or file path. Use 'terminal' or provide a .csv filename",
     ),
 ) -> None:
-    """Execute SQL query and display or save results."""
+    """Execute SQL query and display or save results.
+
+    Examples:
+        # Display in terminal
+        sqlcompare query "SELECT * FROM users LIMIT 10"
+
+        # Save to CSV
+        sqlcompare query "SELECT id, name FROM customers" --output results.csv
+
+        # Use specific connection
+        sqlcompare query "SELECT COUNT(*) FROM orders" -c snowflake_prod
+
+        # Multi-line query
+        sqlcompare query "
+            SELECT u.id, u.name, COUNT(o.id) as order_count
+            FROM users u
+            LEFT JOIN orders o ON u.id = o.user_id
+            GROUP BY u.id, u.name
+        " -c postgres_dev --output user_orders.csv
+
+    Output Options:
+        --output terminal: Display in terminal (default)
+        --output file.csv: Save to CSV file
+    """
     query(q, connection, output)

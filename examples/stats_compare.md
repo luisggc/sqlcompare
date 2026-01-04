@@ -5,7 +5,7 @@ Compare statistics between two CSV files
 ## Command
 
 ```bash
-sqlcompare table tests/datasets/stats_compare/previous.csv tests/datasets/stats_compare/current.csv --stats
+sqlcompare stats tests/datasets/stats_compare/previous.csv tests/datasets/stats_compare/current.csv
 ```
 
 ## Output

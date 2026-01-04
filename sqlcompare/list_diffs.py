@@ -62,5 +62,21 @@ def list_diffs_cmd(
     pattern: str | None = typer.Argument(None, help="Match diff IDs"),
     test: str | None = typer.Option(None, "--test", help="Filter by test name"),
 ) -> None:
-    """List all available diff data files."""
+    """List all saved comparison results.
+
+    Shows all diff IDs from previous table/dataset comparisons, sorted by date.
+
+    Examples:
+        # List all diffs
+        sqlcompare list-diffs
+
+        # Filter by pattern
+        sqlcompare list-diffs users
+
+        # Filter by test name
+        sqlcompare list-diffs --test migration_check
+
+    Output:
+        Displays: diff_id, test name, file size, creation date
+    """
     list_diffs(pattern, test)

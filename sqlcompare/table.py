@@ -9,29 +9,20 @@ from sqlcompare.compare.comparator import DatabaseComparator
 from sqlcompare.config import DB_TEST_DB, get_default_schema
 from sqlcompare.db import DBConnection
 from sqlcompare.log import log
-from sqlcompare.utils.test_types.stats import compare_table_stats
 
 
 def compare_table(
     table1: str,
     table2: str,
-    ids: str | None,
+    index: str,
     connection: str | None,
     schema: str | None,
-    *,
-    stats: bool = False,
 ) -> None:
     """Compare two tables in the database.
 
     TABLE1 and TABLE2 are the names of the tables to compare.
-    IDS is a comma-separated list of column names to use as the unique key.
+    INDEX is a comma-separated list of column names to use as the unique key.
     """
-    if stats:
-        compare_table_stats(table1, table2, connection)
-        return
-
-    if not ids:
-        raise typer.BadParameter("Key columns are required unless --stats is provided.")
 
     schema = schema or get_default_schema()
 
@@ -73,8 +64,8 @@ def compare_table(
 
         connection = connection_id
 
-    # Parse IDs
-    id_cols = [x.strip() for x in ids.split(",")]
+    # Parse index columns
+    id_cols = [x.strip() for x in index.split(",")]
 
     # Generate a test name based on tables
     safe_t1 = "".join(c if c.isalnum() else "_" for c in table1)
@@ -84,7 +75,7 @@ def compare_table(
     # Run comparison
     comparator = DatabaseComparator(connection)
     diff_id = comparator.compare(table1, table2, id_cols, test_name, schema)
-    log.info(f"🔎 To review the diff, run: sqlcompare analyze-diff {diff_id}")
+    log.info(f"🔎 To review the diff, run: sqlcompare inspect {diff_id}")
     log.info(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
         "--column <name> to filter, --list-columns to inspect available fields."
@@ -96,16 +87,38 @@ def table_cmd(
         ..., help="Previous table name or CSV/XLSX file path"
     ),
     table2: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
-    ids: str | None = typer.Argument(
-        None, help="Comma-separated list of key columns (required unless --stats)"
+    index: str = typer.Argument(
+        ..., help="Comma-separated key column(s), e.g. 'id' or 'user_id,tenant_id'"
     ),
     connection: str | None = typer.Option(
         None, "--connection", "-c", help="Database connector name"
     ),
     schema: str | None = typer.Option(None, "--schema", help="Schema for test tables"),
-    stats: bool = typer.Option(
-        False, "--stats", help="Compare tables statistically without joining rows"
-    ),
 ) -> None:
-    """Compare two database tables or CSV/XLSX files."""
-    compare_table(table1, table2, ids, connection, schema, stats=stats)
+    """Compare two database tables or CSV/XLSX files.
+
+    This command performs row-by-row comparison using a specified index (key columns).
+    It detects missing rows, identifies changed columns, and saves results for later inspection.
+
+    Examples:
+        # Single key column
+        sqlcompare table analytics.users analytics.users_new id
+
+        # Composite key (multi-column)
+        sqlcompare table orders orders_new "order_id,line_num"
+
+        # Compare CSV files (uses DuckDB)
+        sqlcompare table exports/prev.csv exports/current.csv customer_id
+
+        # Compare with specific connection
+        sqlcompare table raw.customers staged.customers id -c snowflake_prod
+
+        # Compare Excel files
+        sqlcompare table data/Q1.xlsx data/Q2.xlsx account_id
+
+    Connection Resolution:
+        1. --connection flag (highest priority)
+        2. SQLCOMPARE_CONN_DEFAULT environment variable
+        3. For files: auto-creates temporary DuckDB instance
+    """
+    compare_table(table1, table2, index, connection, schema)

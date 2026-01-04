@@ -53,9 +53,9 @@ sqlcompare table analytics.fact_sales analytics.fact_sales_new id
 That command prints a **diff_id**. Use it for follow-up analysis:
 
 ```bash
-sqlcompare analyze-diff <diff_id> --stats
-sqlcompare analyze-diff <diff_id> --column revenue --limit 100
-sqlcompare analyze-diff <diff_id> --missing-current
+sqlcompare inspect <diff_id> --stats
+sqlcompare inspect <diff_id> --column revenue --limit 100
+sqlcompare inspect <diff_id> --missing-current
 ```
 
 ---
