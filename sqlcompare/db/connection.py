@@ -196,12 +196,22 @@ class DBConnection:
             res = self.conn.execute(text(sql), params or {})
             return res
         except SQLAlchemyError as e:
+            # Extract just the database error message without the full SQL statement
+            error_msg = str(e)
+            # SQLAlchemy often includes the SQL in square brackets at the end
+            # Format: "error message [SQL: long query here]"
+            if "[SQL:" in error_msg:
+                # Extract just the part before [SQL:
+                db_error = error_msg.split("[SQL:")[0].strip()
+            else:
+                db_error = error_msg
+
             raise DBConnectionError(
-                "SQL execution failed.",
+                db_error,
                 conn_id=self.conn_id,
                 sql=sql,
                 original=e,
-            ) from e
+            ) from None  # Suppress the original exception chain to avoid showing SQL twice
         finally:
             self.last_elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
