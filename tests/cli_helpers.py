@@ -29,3 +29,9 @@ def set_cli_env(
     monkeypatch.setenv("SQLCOMPARE_CONN_DEFAULT", connection_name)
     monkeypatch.setenv(f"SQLCOMPARE_CONN_{connection_name.upper()}", connection_url)
     monkeypatch.setenv("SQLCOMPARE_COMPARISON_SCHEMA", schema)
+
+
+def setup_duckdb_env(monkeypatch, config_dir: Path, schema: str = "sqlcompare") -> None:
+    """Setup environment for DuckDB tests without a specific connection."""
+    monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("SQLCOMPARE_COMPARISON_SCHEMA", schema)

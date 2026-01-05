@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from sqlcompare.cli import app
 from sqlcompare.config import load_test_runs
-from tests.cli_helpers import seed_duckdb, set_cli_env
+from tests.cli_helpers import seed_duckdb, set_cli_env, setup_duckdb_env
 
 
 def test_table_command_with_options(tmp_path, monkeypatch) -> None:
@@ -43,8 +43,7 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
 
 
 def test_table_command_with_files(tmp_path, monkeypatch) -> None:
-    config_dir = tmp_path / "config"
-    monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(config_dir))
+    setup_duckdb_env(monkeypatch, tmp_path / "config")
     runner = CliRunner()
 
     dataset_dir = Path(__file__).parent / "datasets" / "row_compare"
