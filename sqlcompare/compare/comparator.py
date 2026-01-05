@@ -201,13 +201,10 @@ class DatabaseComparator:
             except Exception:
                 pass
 
-            # Get column names from pre-existing tables
-            _, cols_prev = db.query(
-                f"SELECT * FROM {tables['previous']} WHERE 1=0", include_columns=True
-            )
-            _, cols_new = db.query(
-                f"SELECT * FROM {tables['new']} WHERE 1=0", include_columns=True
-            )
+            # Get column names from pre-existing tables using database-specific metadata
+            # This ensures we get the actual column case (important for Snowflake)
+            cols_prev = db.get_table_columns(tables['previous'])
+            cols_new = db.get_table_columns(tables['new'])
             self.cols_prev = cols_prev
             self.cols_new = cols_new
 

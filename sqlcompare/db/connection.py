@@ -78,7 +78,7 @@ class DBConnection:
 
         return self
 
-    def __exit__(self, exc_type, _exc, _tb) -> None:
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> None:
         # Commit / rollback transaction
         try:
             if self._tx is not None:
@@ -229,6 +229,37 @@ class DBConnection:
         return ExecMeta(
             elapsed_ms=self.last_elapsed_ms or 0, rowcount=rowcount, columns=cols
         )
+
+    def get_table_columns(self, table_name: str) -> list[str]:
+        """
+        Get the actual column names from a table, using database-specific metadata queries
+        to ensure correct case sensitivity (especially important for Snowflake).
+
+        Args:
+            table_name: Fully qualified table name (e.g., "schema.table" or "db.schema.table")
+
+        Returns:
+            List of column names with their actual case as stored in the database
+        """
+        # Detect if we're using Snowflake by checking the dialect
+        try:
+            dialect_name = self._engine.dialect.name.lower() if self._engine else None
+        except Exception:
+            dialect_name = None
+
+        # For Snowflake, use DESCRIBE TABLE to get actual column names
+        if dialect_name == "snowflake":
+            try:
+                # DESCRIBE TABLE returns columns with their actual case
+                result = self.query(f"DESCRIBE TABLE {table_name}")
+                # First column is the column name
+                return [row[0] for row in result]
+            except Exception:
+                pass
+
+        # Fallback: use SELECT * WHERE 1=0 and get column names from result
+        _, columns = self.query(f"SELECT * FROM {table_name} WHERE 1=0", include_columns=True)
+        return columns
 
     def query(
         self,

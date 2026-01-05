@@ -69,12 +69,8 @@ def compare_table_stats(table1: str, table2: str, connection: str | None) -> Non
             db.create_table_from_file(table1_name, table1)
             db.create_table_from_file(table2_name, table2)
 
-        _, cols_prev = db.query(
-            f"SELECT * FROM {table1_name} WHERE 1=0", include_columns=True
-        )
-        _, cols_new = db.query(
-            f"SELECT * FROM {table2_name} WHERE 1=0", include_columns=True
-        )
+        cols_prev = db.get_table_columns(table1_name)
+        cols_new = db.get_table_columns(table2_name)
 
         prev_map = {col.upper(): col for col in cols_prev}
         new_map = {col.upper(): col for col in cols_new}
