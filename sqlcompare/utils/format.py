@@ -33,7 +33,7 @@ def format_table(
     """
     n_cols = len(columns)
     if n_cols == 0:
-        return tabulate([], headers=[], tablefmt=tablefmt, **tabulate_kwargs)
+        return tabulate([], headers=[], tablefmt="pretty", **tabulate_kwargs)
 
     # ---- column trimming ----
     use_col_ellipsis = n_cols > max_cols and max_cols >= 2

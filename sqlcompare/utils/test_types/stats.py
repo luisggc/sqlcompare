@@ -6,7 +6,7 @@ from sqlcompare.utils.format import format_table
 
 
 def _quote_ident(name: str) -> str:
-    return f'"{name.replace('"', '""')}"'
+    return '"' + name.replace('"', '""') + '"'
 
 
 def _collect_table_stats(

@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 
 lib_name = "sqlcompare"
-lib_config_folder = Path.home() / f".{lib_name}"
+lib_config_folder = Path.home() / ".config" / f"{lib_name}"
 
 LIBRARY_CONNECTIONS = [
     os.getenv(
-        "SQLCOMPARE_CONNECTIONS_FILE", str(lib_config_folder / "connections.yml")
+        "SQLCOMPARE_CONNECTIONS_FILE", str(lib_config_folder / "connections.yaml")
     ),
     os.getenv("DTK_CONNECTIONS_FILE", str(Path.home() / ".dtk" / "connections.yml")),
 ]
