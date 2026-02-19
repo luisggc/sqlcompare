@@ -60,3 +60,71 @@ def test_table_command_with_files(tmp_path, monkeypatch) -> None:
     assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
+
+
+def test_table_command_ignore_columns_option(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "sqlcompare.duckdb"
+    seed_duckdb(db_path)
+    config_dir = tmp_path / "config"
+    set_cli_env(
+        monkeypatch,
+        config_dir,
+        "duckdb_test",
+        f"duckdb:///{db_path}",
+        schema="analysis_schema",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "table",
+            "previous",
+            "current",
+            "id",
+            "--connection",
+            "duckdb_test",
+            "--ignore-columns",
+            "value",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    runs = load_test_runs()
+    assert len(runs) == 1
+    run = next(iter(runs.values()))
+    assert run["common_cols"] == ["name"]
+
+
+def test_table_command_columns_option(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "sqlcompare.duckdb"
+    seed_duckdb(db_path)
+    config_dir = tmp_path / "config"
+    set_cli_env(
+        monkeypatch,
+        config_dir,
+        "duckdb_test",
+        f"duckdb:///{db_path}",
+        schema="analysis_schema",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "table",
+            "previous",
+            "current",
+            "id",
+            "--connection",
+            "duckdb_test",
+            "--columns",
+            "value",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    runs = load_test_runs()
+    assert len(runs) == 1
+    run = next(iter(runs.values()))
+    assert run["common_cols"] == ["value"]

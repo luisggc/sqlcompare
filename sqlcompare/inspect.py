@@ -36,10 +36,11 @@ def inspect_diff(
         idx = run.get("index_cols", [])
         cols_prev = run.get("cols_prev", [])
         cols_new = run.get("cols_new", [])
+        common_cols = run.get("common_cols")
         if "duckdb_file" in run:
             db_file = run["duckdb_file"]
             comp = DatabaseComparator.from_saved(
-                db_file, tables, idx, cols_prev, cols_new
+                db_file, tables, idx, cols_prev, cols_new, common_cols
             )
             # Use DBConnection with duckdb URL
             conn_url = f"duckdb:///{db_file}"
@@ -105,7 +106,9 @@ def inspect_diff(
                 )
             return
         conn = run["conn"]
-        comp = DatabaseComparator.from_saved(conn, tables, idx, cols_prev, cols_new)
+        comp = DatabaseComparator.from_saved(
+            conn, tables, idx, cols_prev, cols_new, common_cols
+        )
         with DBConnection(conn) as db:
             if stats:
                 q = comp.get_stats_query(column=column)

@@ -17,6 +17,8 @@ def compare_table(
     index: str,
     connection: str | None,
     schema: str | None,
+    include_columns: str | None = None,
+    ignore_columns: str | None = None,
 ) -> None:
     """Compare two tables in the database.
 
@@ -64,8 +66,18 @@ def compare_table(
 
         connection = connection_id
 
-    # Parse index columns
+    # Parse index and comparison columns
     id_cols = [x.strip() for x in index.split(",")]
+    include_cols = (
+        [x.strip() for x in include_columns.split(",") if x.strip()]
+        if include_columns
+        else None
+    )
+    ignore_cols = (
+        [x.strip() for x in ignore_columns.split(",") if x.strip()]
+        if ignore_columns
+        else None
+    )
 
     # Generate a test name based on tables
     safe_t1 = "".join(c if c.isalnum() else "_" for c in table1)
@@ -74,7 +86,15 @@ def compare_table(
 
     # Run comparison
     comparator = DatabaseComparator(connection)
-    diff_id = comparator.compare(table1, table2, id_cols, test_name, schema)
+    diff_id = comparator.compare(
+        table1,
+        table2,
+        id_cols,
+        test_name,
+        schema,
+        include_columns=include_cols,
+        ignore_columns=ignore_cols,
+    )
     log.info(f"🔎 To review the diff, run: sqlcompare inspect {diff_id}")
     log.info(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
@@ -94,6 +114,16 @@ def table_cmd(
         None, "--connection", "-c", help="Database connector name"
     ),
     schema: str | None = typer.Option(None, "--schema", help="Schema for test tables"),
+    columns: str | None = typer.Option(
+        None,
+        "--columns",
+        help="Comma-separated non-index columns to compare (default: all common columns)",
+    ),
+    ignore_columns: str | None = typer.Option(
+        None,
+        "--ignore-columns",
+        help="Comma-separated non-index columns to skip from comparison",
+    ),
 ) -> None:
     """Compare two database tables or CSV/XLSX files.
 
@@ -121,4 +151,12 @@ def table_cmd(
         2. SQLCOMPARE_CONN_DEFAULT environment variable
         3. For files: auto-creates temporary DuckDB instance
     """
-    compare_table(table1, table2, index, connection, schema)
+    compare_table(
+        table1,
+        table2,
+        index,
+        connection,
+        schema,
+        include_columns=columns,
+        ignore_columns=ignore_columns,
+    )

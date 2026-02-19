@@ -21,6 +21,59 @@ class DatabaseComparator:
         self.cols_new: list[str] = []
         self.common_cols: list[str] = []
 
+    @staticmethod
+    def _resolve_compare_columns(
+        common_cols: Sequence[str],
+        include_columns: Sequence[str] | None,
+        ignore_columns: Sequence[str] | None,
+    ) -> list[str]:
+        selected_cols = list(common_cols)
+
+        if include_columns:
+            include_matches: list[str] = []
+            missing_includes: list[str] = []
+            seen: set[str] = set()
+            for raw_col in include_columns:
+                col = raw_col.strip()
+                if not col:
+                    continue
+                match = next((c for c in common_cols if c.upper() == col.upper()), None)
+                if not match:
+                    missing_includes.append(raw_col)
+                    continue
+                key = match.upper()
+                if key in seen:
+                    continue
+                seen.add(key)
+                include_matches.append(match)
+            if missing_includes:
+                raise ValueError(
+                    "Included columns not found in both tables: "
+                    + ", ".join(missing_includes)
+                )
+            selected_cols = include_matches
+
+        if ignore_columns:
+            ignore_keys: set[str] = set()
+            missing_ignores: list[str] = []
+            for raw_col in ignore_columns:
+                col = raw_col.strip()
+                if not col:
+                    continue
+                match = next((c for c in common_cols if c.upper() == col.upper()), None)
+                if not match:
+                    missing_ignores.append(raw_col)
+                    continue
+                ignore_keys.add(match.upper())
+            if missing_ignores:
+                raise ValueError(
+                    "Ignored columns not found in both tables: "
+                    + ", ".join(missing_ignores)
+                )
+            selected_cols = [c for c in selected_cols if c.upper() not in ignore_keys]
+
+        return selected_cols
+
     def _ensure_schema(self, db: DBConnection, test_schema: str) -> None:
         """Ensure the test schema exists without changing the database context permanently."""
         try:
@@ -60,15 +113,19 @@ class DatabaseComparator:
         index_cols: Sequence[str],
         cols_prev: Sequence[str],
         cols_new: Sequence[str],
+        common_cols: Sequence[str] | None = None,
     ) -> "DatabaseComparator":
         inst = cls(connection)
         inst.tables = tables
         inst.index_cols = list(index_cols)
         inst.cols_prev = list(cols_prev)
         inst.cols_new = list(cols_new)
-        inst.common_cols = [
-            c for c in inst.cols_prev if c in inst.cols_new and c not in inst.index_cols
-        ]
+        if common_cols is not None:
+            inst.common_cols = list(common_cols)
+        else:
+            inst.common_cols = [
+                c for c in inst.cols_prev if c in inst.cols_new and c not in inst.index_cols
+            ]
         return inst
 
     # ------------------------------------------------------------------
@@ -157,6 +214,8 @@ class DatabaseComparator:
         index_cols: Sequence[str],
         test_name: str,
         test_schema: str = "sqlcompare",
+        include_columns: Sequence[str] | None = None,
+        ignore_columns: Sequence[str] | None = None,
     ) -> str:
         """Compare two tables in the database."""
         if not index_cols:
@@ -251,9 +310,14 @@ class DatabaseComparator:
                 ]
             )
             self.index_cols = valid_index_cols
-            self.common_cols = [
+            all_common_cols = [
                 c for c in cols_prev if c in cols_new and c not in self.index_cols
             ]
+            self.common_cols = self._resolve_compare_columns(
+                all_common_cols,
+                include_columns=include_columns,
+                ignore_columns=ignore_columns,
+            )
 
             # Build join table with side specific columns
             select_cols = [f'p."{c}" AS "{c}_previous"' for c in cols_prev]
@@ -365,6 +429,7 @@ class DatabaseComparator:
             "index_cols": list(self.index_cols),
             "cols_prev": self.cols_prev,
             "cols_new": self.cols_new,
+            "common_cols": self.common_cols,
             "conn": conn_name,
         }
 
