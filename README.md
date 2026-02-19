@@ -24,6 +24,8 @@ Recommended:
 
 ```bash
 uv tool install sqlcompare
+-- or
+uv tool install "sqlcompare[snowflake] @ git+https://github.com/luisggc/sqlcompare" --python 3.11
 ```
 
 Install optional connector extras as needed:
