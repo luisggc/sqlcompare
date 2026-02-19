@@ -293,6 +293,11 @@ def _save_inspect_report(
     column: str | None,
     file_path: str | None,
 ) -> None:
+    def _count_rows_for_query(query: str) -> int:
+        count_rows = db.query(f"SELECT COUNT(*) AS row_count FROM ({query}) AS src")
+        count_value = count_rows[0][0] if count_rows and count_rows[0] else 0
+        return int(count_value or 0)
+
     stats_query = comp.get_stats_query(column=column)
     stats_rows, _ = db.query(stats_query, include_columns=True)
     changed_stats = [
@@ -303,6 +308,8 @@ def _save_inspect_report(
 
     total_diff_count = sum(count for _, count in changed_stats)
     changed_columns = [col_name for col_name, _ in changed_stats]
+    in_current_only_count = _count_rows_for_query(comp.get_in_current_only_query())
+    in_previous_only_count = _count_rows_for_query(comp.get_in_previous_only_query())
 
     overview_rows: list[tuple[Any, Any, Any]] = [
         ("Summary", "Diff ID", diff_id),
@@ -310,6 +317,8 @@ def _save_inspect_report(
         ("Summary", "Filtered Column", column or "(all)"),
         ("Summary", "Total Differences", total_diff_count),
         ("Summary", "Changed Columns", len(changed_columns)),
+        ("Summary", "Rows Only In Current", in_current_only_count),
+        ("Summary", "Rows Only In Previous", in_previous_only_count),
     ]
     for col_name, count in changed_stats:
         overview_rows.append(("Column Diff Count", col_name, count))

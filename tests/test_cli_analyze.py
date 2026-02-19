@@ -91,6 +91,14 @@ def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> N
         assert "Overview" in summary_wb.sheetnames
         assert "SQL Reference" in summary_wb.sheetnames
         assert any(name.lower() == "value" for name in summary_wb.sheetnames)
+        overview_sheet = summary_wb["Overview"]
+        overview_values = {
+            row[1]: row[2]
+            for row in overview_sheet.iter_rows(min_row=2, values_only=True)
+            if row[1]
+        }
+        assert overview_values["Rows Only In Current"] == 1
+        assert overview_values["Rows Only In Previous"] == 1
 
         save_complete = runner.invoke(
             app,

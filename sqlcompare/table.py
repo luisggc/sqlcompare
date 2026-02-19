@@ -97,6 +97,9 @@ def compare_table(
     )
     log.info(f"🔎 To review the diff, run: sqlcompare inspect {diff_id}")
     log.info(
+        f"💾 To export a summary report, run: sqlcompare inspect {diff_id} --save summary"
+    )
+    log.info(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
         "--column <name> to filter, --list-columns to inspect available fields."
     )

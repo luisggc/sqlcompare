@@ -40,6 +40,10 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
     assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
+    diff_id = next(iter(runs.keys()))
+    assert (
+        f"sqlcompare inspect {diff_id} --save summary" in result.output
+    ), result.output
 
 
 def test_table_command_with_files(tmp_path, monkeypatch) -> None:
@@ -59,6 +63,10 @@ def test_table_command_with_files(tmp_path, monkeypatch) -> None:
     assert "inspect" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
+    diff_id = next(iter(runs.keys()))
+    assert (
+        f"sqlcompare inspect {diff_id} --save summary" in result.output
+    ), result.output
 
 
 def test_table_command_ignore_columns_option(tmp_path, monkeypatch) -> None:
