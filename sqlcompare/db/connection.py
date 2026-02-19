@@ -38,7 +38,7 @@ class DBConnection:
         1. Use default connection if conn_id is None (SQLCOMPARE_CONN_DEFAULT, DTK_CONN_DEFAULT)
         2. Direct URL (if contains "://")
         3. Environment variables: SQLCOMPARE_CONN_<NAME>, DTK_CONN_<NAME>
-        4. YAML files: ~/.sqlcompare/connections.yml, ~/.dtk/connections.yml
+        4. YAML files: ~/.config/sqlcompare/connections.yaml/.yml, ~/.dtk/connections.yml
     """
 
     conn_id: str | None = None

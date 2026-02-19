@@ -83,12 +83,35 @@ def _build_not_found_error(conn_id: str, normalized_name: str) -> str:
 
     message_parts.append("")
     message_parts.append("Searched YAML files:")
-    for yaml_file in LIBRARY_CONNECTIONS:
+    for yaml_file in _iter_yaml_candidates(LIBRARY_CONNECTIONS):
         expanded = Path(yaml_file).expanduser()
         exists = " (found)" if expanded.exists() else " (not found)"
         message_parts.append(f"  - {yaml_file}{exists}")
 
     return "\n".join(message_parts)
+
+
+def _iter_yaml_candidates(paths: list[str]) -> list[str]:
+    """Return configured YAML paths plus sibling .yml/.yaml fallbacks."""
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    for raw_path in paths:
+        expanded = str(Path(raw_path).expanduser())
+        base = Path(expanded)
+        options = [expanded]
+        if base.suffix.lower() == ".yml":
+            options.append(str(base.with_suffix(".yaml")))
+        elif base.suffix.lower() == ".yaml":
+            options.append(str(base.with_suffix(".yml")))
+
+        for candidate in options:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+
+    return candidates
 
 
 def resolve_connection_url(conn_id_or_url: str | None) -> str:
@@ -127,7 +150,7 @@ def resolve_connection_url(conn_id_or_url: str | None) -> str:
         url = resolve_connection_url("/path/to/data.csv")
 
         # YAML file lookup (if not in env)
-        # Searches ~/.sqlcompare/connections.yml, then ~/.dtk/connections.yml
+        # Searches ~/.config/sqlcompare/connections.yaml/.yml, then ~/.dtk/connections.yml
     """
     # Step 0: Use default connection if None (search all DEFAULT_CONN_IDS)
     if conn_id_or_url is None:
@@ -161,8 +184,8 @@ def resolve_connection_url(conn_id_or_url: str | None) -> str:
         if url_str:
             return url_str
 
-    # Step 4: Search ALL YAML files (in order)
-    for yaml_path in LIBRARY_CONNECTIONS:
+    # Step 4: Search ALL YAML files (in order), with .yml/.yaml fallback for each path
+    for yaml_path in _iter_yaml_candidates(LIBRARY_CONNECTIONS):
         connections = _load_connections_from_yaml(yaml_path)
 
         # YAML uses raw conn_id (not normalized) for matching

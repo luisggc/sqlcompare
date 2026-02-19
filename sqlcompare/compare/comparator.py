@@ -163,6 +163,20 @@ class DatabaseComparator:
             f"FROM {self.tables['join']} WHERE {cond}"
         )
 
+    def _empty_diff_query(self) -> str:
+        idx_expr = ", ".join(
+            [f'CAST(NULL AS VARCHAR) AS "{c}"' for c in self.index_cols]
+        )
+        select_parts = [idx_expr] if idx_expr else []
+        select_parts.extend(
+            [
+                'CAST(NULL AS VARCHAR) AS "COLUMN"',
+                'CAST(NULL AS VARCHAR) AS "BEFORE"',
+                'CAST(NULL AS VARCHAR) AS "CURRENT"',
+            ]
+        )
+        return "SELECT " + ", ".join(select_parts) + " WHERE 1=0"
+
     def get_diff_query(self, column: str = None, limit: int = None) -> str:
         if column:
             # Case-insensitive match for the specific column
@@ -170,12 +184,14 @@ class DatabaseComparator:
                 (c for c in self.common_cols if c.upper() == column.upper()), None
             )
             if not match:
-                # Still return an empty result if column not found in common cols
-                return "SELECT NULL AS ID, NULL AS COLUMN, NULL AS BEFORE, NULL AS CURRENT WHERE 1=0"
+                return self._empty_diff_query()
             query = self.get_column_diff_query(match)
         else:
-            queries = [self.get_column_diff_query(c) for c in self.common_cols]
-            query = " UNION ALL ".join(queries)
+            if not self.common_cols:
+                query = self._empty_diff_query()
+            else:
+                queries = [self.get_column_diff_query(c) for c in self.common_cols]
+                query = " UNION ALL ".join(queries)
 
         if limit:
             query += f" LIMIT {limit}"

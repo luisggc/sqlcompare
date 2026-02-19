@@ -39,9 +39,10 @@ def list_diffs(pattern: str | None, test: str | None) -> None:
     for run_id, run in runs.items():
         if pattern and pattern.lower() not in run_id.lower():
             continue
-        if test and test.lower() not in run.get("conn", "").lower():
+        conn_name = run.get("conn") or ""
+        if test and test.lower() not in conn_name.lower():
             continue
-        filtered_matches.append((run_id, run.get("conn", "db"), 0, datetime.now()))
+        filtered_matches.append((run_id, conn_name or "db", 0, datetime.now()))
 
     if not filtered_matches:
         log.info("📭 No diff data found matching your criteria.")

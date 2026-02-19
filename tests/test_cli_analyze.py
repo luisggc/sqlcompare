@@ -179,3 +179,38 @@ def test_analyze_diff_column_limit_uses_total_count(tmp_path, monkeypatch) -> No
     assert "Loaded diff data: 5 total differences" in inspect_result.output
     assert "Filtered to 5 differences for column 'value'" in inspect_result.output
     assert "Showing 2 of 5 differences" in inspect_result.output
+
+
+def test_analyze_diff_with_only_index_columns(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "sqlcompare_index_only.duckdb"
+    with DBConnection(f"duckdb:///{db_path}") as db:
+        db.execute("CREATE TABLE previous (id INTEGER)")
+        db.execute("CREATE TABLE current (id INTEGER)")
+        db.execute("INSERT INTO previous VALUES (1), (2)")
+        db.execute("INSERT INTO current VALUES (1), (3)")
+
+    config_dir = tmp_path / "config"
+    set_cli_env(
+        monkeypatch,
+        config_dir,
+        "duckdb_index_only",
+        f"duckdb:///{db_path}",
+    )
+    runner = CliRunner()
+    compare_result = runner.invoke(
+        app,
+        [
+            "table",
+            "previous",
+            "current",
+            "id",
+            "--connection",
+            "duckdb_index_only",
+        ],
+    )
+    assert compare_result.exit_code == 0, compare_result.output
+
+    diff_id = next(iter(load_test_runs().keys()))
+    inspect_result = runner.invoke(app, ["inspect", diff_id])
+    assert inspect_result.exit_code == 0, inspect_result.output
+    assert "Loaded diff data: 0 total differences" in inspect_result.output
