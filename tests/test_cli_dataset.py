@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 from sqlcompare.cli import app
 from sqlcompare.config import load_test_runs
 from sqlcompare.db import DBConnection
+from tests.cli_helpers import setup_duckdb_env
 
 
 def _seed_duckdb(db_path: Path) -> None:
@@ -124,7 +125,7 @@ def test_dataset_command_with_yaml_dataset(tmp_path: Path, monkeypatch) -> None:
 def test_dataset_command_file_name_without_connection(
     tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(tmp_path / "config"))
+    setup_duckdb_env(monkeypatch, tmp_path / "config")
 
     runner = CliRunner()
     dataset_path = Path(__file__).parent / "datasets" / "row_compare" / "dataset.yaml"

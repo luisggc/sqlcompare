@@ -37,7 +37,7 @@ def query(q: str, connection: str | None, output: str) -> None:
         if rows:
             from tabulate import tabulate
 
-            print(tabulate(rows, headers=columns))
+            print(tabulate(rows, headers=columns, tablefmt="pretty"))
             print(f"\nTotal rows: {len(rows)}")
         else:
             print("Query executed successfully. No rows returned.")

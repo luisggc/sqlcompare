@@ -23,10 +23,27 @@ def normalize_connection_name(name: str) -> str:
     return s
 
 
+def _expand_env_vars(value: Any) -> Any:
+    """
+    Recursively expand environment variables in strings, dicts, and lists.
+
+    Expands ${VAR_NAME} and $VAR_NAME patterns in strings.
+    """
+    if isinstance(value, str):
+        return os.path.expandvars(value)
+    elif isinstance(value, dict):
+        return {k: _expand_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_expand_env_vars(item) for item in value]
+    else:
+        return value
+
+
 def _load_connections_from_yaml(yaml_path: str) -> dict[str, dict[str, Any]]:
     """
     Load connection definitions from YAML file.
     Returns a dict mapping conn_id -> URL.create() parameters.
+    Expands environment variables in all string values.
     """
     expanded_path = Path(yaml_path).expanduser()
     if not expanded_path.exists():
@@ -35,7 +52,10 @@ def _load_connections_from_yaml(yaml_path: str) -> dict[str, dict[str, Any]]:
     try:
         with open(expanded_path, "r") as f:
             data = yaml.safe_load(f)
-            return data if isinstance(data, dict) else {}
+            if isinstance(data, dict):
+                # Expand environment variables in all values
+                return _expand_env_vars(data)
+            return {}
     except Exception:
         return {}
 

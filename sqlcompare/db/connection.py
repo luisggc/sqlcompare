@@ -78,7 +78,7 @@ class DBConnection:
 
         return self
 
-    def __exit__(self, exc_type, _exc, _tb) -> None:
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> None:
         # Commit / rollback transaction
         try:
             if self._tx is not None:
@@ -196,12 +196,22 @@ class DBConnection:
             res = self.conn.execute(text(sql), params or {})
             return res
         except SQLAlchemyError as e:
+            # Extract just the database error message without the full SQL statement
+            error_msg = str(e)
+            # SQLAlchemy often includes the SQL in square brackets at the end
+            # Format: "error message [SQL: long query here]"
+            if "[SQL:" in error_msg:
+                # Extract just the part before [SQL:
+                db_error = error_msg.split("[SQL:")[0].strip()
+            else:
+                db_error = error_msg
+
             raise DBConnectionError(
-                "SQL execution failed.",
+                db_error,
                 conn_id=self.conn_id,
                 sql=sql,
                 original=e,
-            ) from e
+            ) from None  # Suppress the original exception chain to avoid showing SQL twice
         finally:
             self.last_elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
@@ -219,6 +229,37 @@ class DBConnection:
         return ExecMeta(
             elapsed_ms=self.last_elapsed_ms or 0, rowcount=rowcount, columns=cols
         )
+
+    def get_table_columns(self, table_name: str) -> list[str]:
+        """
+        Get the actual column names from a table, using database-specific metadata queries
+        to ensure correct case sensitivity (especially important for Snowflake).
+
+        Args:
+            table_name: Fully qualified table name (e.g., "schema.table" or "db.schema.table")
+
+        Returns:
+            List of column names with their actual case as stored in the database
+        """
+        # Detect if we're using Snowflake by checking the dialect
+        try:
+            dialect_name = self._engine.dialect.name.lower() if self._engine else None
+        except Exception:
+            dialect_name = None
+
+        # For Snowflake, use DESCRIBE TABLE to get actual column names
+        if dialect_name == "snowflake":
+            try:
+                # DESCRIBE TABLE returns columns with their actual case
+                result = self.query(f"DESCRIBE TABLE {table_name}")
+                # First column is the column name
+                return [row[0] for row in result]
+            except Exception:
+                pass
+
+        # Fallback: use SELECT * WHERE 1=0 and get column names from result
+        _, columns = self.query(f"SELECT * FROM {table_name} WHERE 1=0", include_columns=True)
+        return columns
 
     def query(
         self,

@@ -260,13 +260,10 @@ class DatabaseComparator:
             except Exception:
                 pass
 
-            # Get column names from pre-existing tables
-            _, cols_prev = db.query(
-                f"SELECT * FROM {tables['previous']} WHERE 1=0", include_columns=True
-            )
-            _, cols_new = db.query(
-                f"SELECT * FROM {tables['new']} WHERE 1=0", include_columns=True
-            )
+            # Get column names from pre-existing tables using database-specific metadata
+            # This ensures we get the actual column case (important for Snowflake)
+            cols_prev = db.get_table_columns(tables['previous'])
+            cols_new = db.get_table_columns(tables['new'])
             self.cols_prev = cols_prev
             self.cols_new = cols_new
 
@@ -420,17 +417,15 @@ class DatabaseComparator:
         runs = load_test_runs()
 
         # Save metadata for later analysis
-        # For DuckDB connections (file-based tests), save "duckdb"
-        # For remote databases (Snowflake, etc.), save the connection name
-        conn_name = self.connection if isinstance(self.connection, str) else "duckdb"
-
+        # Save the connection as-is (can be None, connection ID, or URL)
+        # When None, it will resolve to the default connection on inspection
         run_data = {
             "tables": tables,
             "index_cols": list(self.index_cols),
             "cols_prev": self.cols_prev,
             "cols_new": self.cols_new,
             "common_cols": self.common_cols,
-            "conn": conn_name,
+            "conn": self.connection,
         }
 
         runs[diff_id] = run_data
