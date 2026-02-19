@@ -181,6 +181,13 @@ class DatabaseComparator:
             query += f" LIMIT {limit}"
         return query
 
+    def get_diff_count_query(self, column: str = None) -> str:
+        return (
+            "SELECT COUNT(*) AS diff_count FROM ("
+            + self.get_diff_query(column=column, limit=None)
+            + ") AS diff_rows"
+        )
+
     def get_stats_query(self, column: str = None) -> str:
         cols_to_stat = self.common_cols
         if column:

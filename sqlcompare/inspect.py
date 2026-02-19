@@ -253,12 +253,26 @@ def _inspect_db_run(
         _display(columns, rows, column, limit, diff_id, list_columns=list_columns)
         return
 
-    sql_limit = limit if not list_columns else None
-    rows, columns = db.query(
-        comp.get_diff_query(column=column, limit=sql_limit),
-        include_columns=True,
-    )
-    _display(columns, rows, column, limit, diff_id, list_columns=list_columns)
+    if save_mode == "none":
+        total_differences: int | None = None
+        if not list_columns:
+            count_rows = db.query(comp.get_diff_count_query(column=column))
+            count_value = count_rows[0][0] if count_rows and count_rows[0] else 0
+            total_differences = int(count_value or 0)
+        sql_limit = limit if not list_columns else None
+        rows, columns = db.query(
+            comp.get_diff_query(column=column, limit=sql_limit),
+            include_columns=True,
+        )
+        _display(
+            columns,
+            rows,
+            column,
+            limit,
+            diff_id,
+            list_columns=list_columns,
+            total_differences=total_differences,
+        )
 
     if save_mode != "none":
         _save_inspect_report(

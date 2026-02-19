@@ -55,6 +55,7 @@ def _display(
     *,
     is_stats: bool = False,
     list_columns: bool = False,
+    total_differences: int | None = None,
 ):
     if not columns:
         log.info("No results returned.")
@@ -79,7 +80,8 @@ def _display(
         log.info(format_table(columns, filtered_rows[:limit]))
         return
 
-    log.info(f"📂 Loaded diff data: {len(rows)} total differences")
+    effective_total = total_differences if total_differences is not None else len(rows)
+    log.info(f"📂 Loaded diff data: {effective_total} total differences")
     if list_columns:
         if column_idx is None:
             log.warning("⚠️  Column metadata not available.")
@@ -94,23 +96,24 @@ def _display(
         return
 
     filtered_rows = rows
+    filtered_total = effective_total
     if column and column_idx is not None:
         column_upper = column.upper()
         filtered_rows = [
             row for row in rows if str(row[column_idx]).upper() == column_upper
         ]
+        if total_differences is None:
+            filtered_total = len(filtered_rows)
         if not filtered_rows:
             log.warning(f"⚠️  No differences found for column '{column}'")
             return
-        log.info(
-            f"🔍 Filtered to {len(filtered_rows)} differences for column '{column}'"
-        )
+        log.info(f"🔍 Filtered to {filtered_total} differences for column '{column}'")
 
     display_rows = filtered_rows[:limit]
-    log.info(f"📊 Showing {len(display_rows)} of {len(filtered_rows)} differences:")
+    log.info(f"📊 Showing {len(display_rows)} of {filtered_total} differences:")
     log.info(format_table(columns, display_rows))
-    if len(filtered_rows) > limit:
-        log.info(f"💡 Use --limit {len(filtered_rows)} to see all results")
+    if filtered_total > limit:
+        log.info(f"💡 Use --limit {filtered_total} to see all results")
 
 
 def _column_index(columns: list[str], name: str) -> int | None:

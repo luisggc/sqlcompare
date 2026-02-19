@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from sqlcompare.cli import app
 from sqlcompare.config import load_test_runs
+from sqlcompare.db import DBConnection
 from tests.cli_helpers import seed_duckdb, set_cli_env
 
 
@@ -82,6 +83,7 @@ def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> N
         )
         assert save_summary.exit_code == 0, save_summary.output
         assert "Report saved to:" in save_summary.output
+        assert "Loaded diff data" not in save_summary.output
         summary_path = Path.cwd() / "reports" / "inspect_summary.xlsx"
         assert summary_path.exists()
 
@@ -128,3 +130,44 @@ def test_analyze_diff_save_mode_validation(tmp_path, monkeypatch) -> None:
     )
     assert incompatible.exit_code != 0
     assert "Report export (--save summary/complete)" in incompatible.output
+
+
+def test_analyze_diff_column_limit_uses_total_count(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "sqlcompare_many.duckdb"
+    with DBConnection(f"duckdb:///{db_path}") as db:
+        db.execute("CREATE TABLE previous (id INTEGER, value INTEGER)")
+        db.execute("CREATE TABLE current (id INTEGER, value INTEGER)")
+        db.execute("INSERT INTO previous VALUES (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)")
+        db.execute("INSERT INTO current VALUES (1, 11), (2, 21), (3, 31), (4, 41), (5, 51)")
+
+    config_dir = tmp_path / "config"
+    set_cli_env(
+        monkeypatch,
+        config_dir,
+        "duckdb_many",
+        f"duckdb:///{db_path}",
+    )
+    runner = CliRunner()
+    compare_result = runner.invoke(
+        app,
+        [
+            "table",
+            "previous",
+            "current",
+            "id",
+            "--connection",
+            "duckdb_many",
+        ],
+    )
+    assert compare_result.exit_code == 0, compare_result.output
+
+    runs = load_test_runs()
+    diff_id = next(iter(runs.keys()))
+
+    inspect_result = runner.invoke(
+        app, ["inspect", diff_id, "--column", "value", "--limit", "2"]
+    )
+    assert inspect_result.exit_code == 0, inspect_result.output
+    assert "Loaded diff data: 5 total differences" in inspect_result.output
+    assert "Filtered to 5 differences for column 'value'" in inspect_result.output
+    assert "Showing 2 of 5 differences" in inspect_result.output
