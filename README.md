@@ -56,7 +56,39 @@ That command prints a **diff_id**. Use it for follow-up analysis:
 sqlcompare inspect <diff_id> --stats
 sqlcompare inspect <diff_id> --column revenue --limit 100
 sqlcompare inspect <diff_id> --missing-current
+sqlcompare inspect <diff_id> --save summary
+sqlcompare inspect <diff_id> --save complete --file-path ./reports/full_diff.xlsx
 ```
+
+---
+
+## Inspect report export (XLSX)
+
+You can export inspect results as a multi-tab Excel report using `--save`.
+
+Modes:
+
+* `--save none` (default): no file output
+* `--save summary`: creates `Overview` + per-column tabs (top 200 rows each) + `SQL Reference`
+* `--save complete`: same tabs, but without the 200-row cap (limited only by XLSX limits)
+
+Examples:
+
+```bash
+# Save summary report in current directory with generated timestamped filename
+sqlcompare inspect <diff_id> --save summary
+
+# Save full report to a specific location
+sqlcompare inspect <diff_id> --save complete --file-path ./reports/full_diff.xlsx
+
+# Save a single-column summary report
+sqlcompare inspect <diff_id> --column revenue --save summary --file-path ./reports/revenue_diff.xlsx
+```
+
+Notes:
+
+* `--file-path` is optional; if omitted, SQLCompare generates a readable timestamped filename.
+* `--save summary|complete` is for the standard diff view and should not be combined with `--stats`, `--missing-current`, `--missing-previous`, or `--list-columns`.
 
 ---
 

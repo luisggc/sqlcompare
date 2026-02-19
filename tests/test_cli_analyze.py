@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from openpyxl import load_workbook
 from typer.testing import CliRunner
 
 from sqlcompare.cli import app
@@ -61,26 +62,46 @@ def test_analyze_diff_stats_and_list_columns(tmp_path, monkeypatch) -> None:
     assert "Available columns" in list_result.output
 
 
-def test_analyze_diff_save_and_missing_filters(tmp_path, monkeypatch) -> None:
+def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> None:
     diff_id = _create_diff(tmp_path, monkeypatch)
     runner = CliRunner()
 
     with runner.isolated_filesystem():
-        save_result = runner.invoke(
+        save_summary = runner.invoke(
             app,
             [
                 "inspect",
                 diff_id,
                 "--column",
                 "value",
-                "--limit",
-                "1",
                 "--save",
+                "summary",
+                "--file-path",
+                "reports/inspect_summary",
             ],
         )
-        assert save_result.exit_code == 0, save_result.output
-        assert "Results saved to:" in save_result.output
-        saved = list(Path.cwd().glob("analysis_*.csv"))
+        assert save_summary.exit_code == 0, save_summary.output
+        assert "Report saved to:" in save_summary.output
+        summary_path = Path.cwd() / "reports" / "inspect_summary.xlsx"
+        assert summary_path.exists()
+
+        summary_wb = load_workbook(summary_path)
+        assert "Overview" in summary_wb.sheetnames
+        assert "SQL Reference" in summary_wb.sheetnames
+        assert any(name.lower() == "value" for name in summary_wb.sheetnames)
+
+        save_complete = runner.invoke(
+            app,
+            [
+                "inspect",
+                diff_id,
+                "--save",
+                "complete",
+            ],
+        )
+        assert save_complete.exit_code == 0, save_complete.output
+        assert "Report saved to:" in save_complete.output
+        saved = list(Path.cwd().glob("inspect_report_*.xlsx"))
         assert saved
 
     missing_current = runner.invoke(app, ["inspect", diff_id, "--missing-current"])
@@ -92,3 +113,18 @@ def test_analyze_diff_save_and_missing_filters(tmp_path, monkeypatch) -> None:
     )
     assert missing_previous.exit_code == 0, missing_previous.output
     assert "Loaded diff data" in missing_previous.output
+
+
+def test_analyze_diff_save_mode_validation(tmp_path, monkeypatch) -> None:
+    diff_id = _create_diff(tmp_path, monkeypatch)
+    runner = CliRunner()
+
+    invalid_mode = runner.invoke(app, ["inspect", diff_id, "--save", "csv"])
+    assert invalid_mode.exit_code != 0
+    assert "Invalid save mode" in invalid_mode.output
+
+    incompatible = runner.invoke(
+        app, ["inspect", diff_id, "--save", "summary", "--stats"]
+    )
+    assert incompatible.exit_code != 0
+    assert "Report export (--save summary/complete)" in incompatible.output

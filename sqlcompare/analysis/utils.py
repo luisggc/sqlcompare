@@ -1,11 +1,17 @@
-import csv
 import glob
 import os
+import re
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from sqlcompare.config import get_tests_folder, load_test_runs
 from sqlcompare.log import log
 from sqlcompare.utils.format import format_table
+
+SUMMARY_TAB_LIMIT = 200
+XLSX_MAX_ROWS = 1_048_576
+XLSX_MAX_COLUMNS = 16_384
 
 
 def find_diff_file(diff_id: str) -> str | None:
@@ -45,7 +51,6 @@ def _display(
     rows: list[tuple],
     column: str | None,
     limit: int,
-    save: bool,
     diff_id: str,
     *,
     is_stats: bool = False,
@@ -106,12 +111,6 @@ def _display(
     log.info(format_table(columns, display_rows))
     if len(filtered_rows) > limit:
         log.info(f"💡 Use --limit {len(filtered_rows)} to see all results")
-    if save:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        column_suffix = f"_{column}" if column else ""
-        output_file = f"analysis_{diff_id}{column_suffix}_{timestamp}.csv"
-        _write_csv(output_file, columns, filtered_rows)
-        log.info(f"💾 Results saved to: {output_file}")
 
 
 def _column_index(columns: list[str], name: str) -> int | None:
@@ -122,11 +121,87 @@ def _column_index(columns: list[str], name: str) -> int | None:
     return None
 
 
-def _write_csv(path: str, columns: list[str], rows: list[tuple]) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(columns)
-        writer.writerows(rows)
+def resolve_report_path(
+    diff_id: str, save_mode: str, file_path: str | None = None
+) -> Path:
+    if file_path:
+        path = Path(file_path).expanduser()
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = Path.cwd() / f"inspect_report_{diff_id}_{save_mode}_{timestamp}.xlsx"
+
+    if path.suffix == "":
+        path = path.with_suffix(".xlsx")
+    if path.suffix.lower() != ".xlsx":
+        raise ValueError("Inspect report file must use the .xlsx extension.")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def write_inspect_report_xlsx(
+    output_path: Path,
+    overview_rows: list[tuple[Any, Any, Any]],
+    column_diffs: dict[str, tuple[list[str], list[tuple[Any, ...]]]],
+    sql_reference_rows: list[tuple[str, str, str]],
+) -> dict[str, int]:
+    try:
+        from openpyxl import Workbook
+    except ImportError as exc:
+        raise RuntimeError(
+            "openpyxl is required for inspect report export. Install sqlcompare with openpyxl available."
+        ) from exc
+
+    workbook = Workbook()
+    default_sheet = workbook.active
+    workbook.remove(default_sheet)
+
+    truncated_rows = 0
+
+    overview_sheet = workbook.create_sheet(title="Overview")
+    overview_sheet.append(["Section", "Name", "Value"])
+    for row in overview_rows:
+        overview_sheet.append(list(row[:3]))
+
+    used_sheet_names = {"Overview", "SQL Reference"}
+    for column_name, (headers, rows) in column_diffs.items():
+        sheet_name = _unique_sheet_name(column_name, used_sheet_names)
+        used_sheet_names.add(sheet_name)
+        sheet = workbook.create_sheet(title=sheet_name)
+
+        clipped_headers = [str(h) for h in headers[:XLSX_MAX_COLUMNS]]
+        sheet.append(clipped_headers)
+
+        max_data_rows = XLSX_MAX_ROWS - 1
+        clipped_rows = rows[:max_data_rows]
+        for row in clipped_rows:
+            sheet.append(list(row[:XLSX_MAX_COLUMNS]))
+
+        if len(rows) > max_data_rows:
+            truncated_rows += len(rows) - max_data_rows
+
+    sql_sheet = workbook.create_sheet(title="SQL Reference")
+    sql_sheet.append(["Category", "Name", "SQL"])
+    for row in sql_reference_rows:
+        sql_sheet.append(list(row[:3]))
+
+    workbook.save(output_path)
+    return {"truncated_rows": truncated_rows}
+
+
+def _unique_sheet_name(raw_name: str, used: set[str]) -> str:
+    cleaned = re.sub(r"[\[\]\*\:/\\\?]", "_", raw_name).strip() or "Sheet"
+    cleaned = cleaned[:31]
+    if cleaned not in used:
+        return cleaned
+
+    suffix = 1
+    while True:
+        candidate_suffix = f"_{suffix}"
+        base = cleaned[: 31 - len(candidate_suffix)]
+        candidate = f"{base}{candidate_suffix}"
+        if candidate not in used:
+            return candidate
+        suffix += 1
 
 
 def list_available_diffs():
