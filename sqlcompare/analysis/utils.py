@@ -77,7 +77,15 @@ def _display(
             if not filtered_rows:
                 log.info(f"❌ No statistics found for column containing '{column}'")
                 return
-        log.info(format_table(columns, filtered_rows[:limit]))
+        display_rows = filtered_rows[:limit]
+        log.info(
+            format_table(
+                columns,
+                display_rows,
+                max_rows=len(display_rows),
+                max_cols=len(columns),
+            )
+        )
         return
 
     effective_total = total_differences if total_differences is not None else len(rows)

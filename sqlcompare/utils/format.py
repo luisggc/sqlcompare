@@ -1,82 +1,35 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence, Any
-from tabulate import tabulate
+from typing import Any
 
-
-def _trim_cell(x: Any, max_width: int | None) -> Any:
-    """Truncate long cell strings with … (does not wrap)."""
-    if max_width is None:
-        return x
-    s = "" if x is None else str(x)
-    if len(s) <= max_width:
-        return s
-    if max_width <= 1:
-        return "…"
-    return s[: max_width - 1] + "…"
+import pandas as pd
 
 
 def format_table(
     columns: list[str],
     rows: list[tuple],
     *,
-    tablefmt: str = "pretty",
     max_rows: int = 20,
     max_cols: int = 12,
     max_cell_width: int | None = 60,
-    **tabulate_kwargs,
 ) -> str:
-    """
-    pandas-like summary output for tabulate:
-      - If too many columns: show left + '…' + right (inserts an ellipsis column)
-      - If too many rows: show head + ellipsis row + tail
-    """
-    n_cols = len(columns)
-    if n_cols == 0:
-        return tabulate([], headers=[], tablefmt="pretty", **tabulate_kwargs)
+    """Render a dataframe-like table using pandas output formatting."""
+    if not columns:
+        return ""
 
-    # ---- column trimming ----
-    use_col_ellipsis = n_cols > max_cols and max_cols >= 2
-    if use_col_ellipsis:
-        left = max_cols // 2
-        right = max_cols - left
-        left_idx = list(range(left))
-        right_idx = list(range(n_cols - right, n_cols))
-        keep_idx = left_idx + right_idx
+    df = pd.DataFrame(list(rows), columns=columns)
 
-        out_columns = columns[:left] + ["…"] + columns[-right:]
+    display_max_rows = None if max_rows is None or max_rows <= 0 else max_rows
+    display_max_cols = None if max_cols is None or max_cols <= 0 else max_cols
 
-        out_rows = []
-        for r in rows:
-            r_list = list(r)
-            kept = (
-                [r_list[i] for i in keep_idx[:left]]
-                + ["…"]
-                + [r_list[i] for i in keep_idx[left:]]
-            )
-            out_rows.append(tuple(kept))
-    else:
-        out_columns = (
-            columns[:max_cols] if (n_cols > max_cols and max_cols >= 1) else columns
-        )
-        keep_idx = list(range(len(out_columns)))
-        out_rows = [tuple(r[i] for i in keep_idx) for r in rows]
-
-    # ---- row trimming ----
-    n_rows = len(out_rows)
-    use_row_ellipsis = n_rows > max_rows and max_rows >= 2
-    if use_row_ellipsis:
-        top = max_rows // 2
-        bottom = max_rows - top
-        head = out_rows[:top]
-        tail = out_rows[-bottom:]
-        ellipsis_row = tuple("…" for _ in out_columns)
-        out_rows = head + [ellipsis_row] + tail
-    else:
-        out_rows = out_rows[:max_rows]
-
-    # ---- cell trimming ----
+    option_kwargs: dict[str, Any] = {
+        "display.max_rows": display_max_rows,
+        "display.max_columns": display_max_cols,
+        "display.width": 0,
+        "display.expand_frame_repr": False,
+    }
     if max_cell_width is not None:
-        out_rows = [tuple(_trim_cell(v, max_cell_width) for v in r) for r in out_rows]
+        option_kwargs["display.max_colwidth"] = max_cell_width
 
-    return tabulate(out_rows, headers=out_columns, tablefmt=tablefmt, **tabulate_kwargs)
+    with pd.option_context(*sum(option_kwargs.items(), ())):
+        return df.to_string(index=False)

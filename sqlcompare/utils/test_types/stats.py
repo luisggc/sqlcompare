@@ -97,13 +97,20 @@ def compare_table_stats(table1: str, table2: str, connection: str | None) -> Non
         "ROWS_DIFF",
         "NULLS_DIFF",
         "DISTINCT_DIFF",
+        "STATUS_PCT",
     ]
     rows = []
+    row_base = max(prev_count, new_count, 1)
     for key in common_keys:
         prev_nulls = prev_stats.get(key, {}).get("null_count", 0)
         new_nulls = new_stats.get(key, {}).get("null_count", 0)
         prev_distinct = prev_stats.get(key, {}).get("distinct_count", 0)
         new_distinct = new_stats.get(key, {}).get("distinct_count", 0)
+        distinct_base = max(prev_distinct, new_distinct, 1)
+        row_sim = 1 - (abs(new_count - prev_count) / row_base)
+        null_sim = 1 - (abs(new_nulls - prev_nulls) / row_base)
+        distinct_sim = 1 - (abs(new_distinct - prev_distinct) / distinct_base)
+        status_pct = max(0.0, min(100.0, (row_sim + null_sim + distinct_sim) / 3 * 100))
         rows.append(
             (
                 prev_map[key],
@@ -116,8 +123,18 @@ def compare_table_stats(table1: str, table2: str, connection: str | None) -> Non
                 new_count - prev_count,
                 new_nulls - prev_nulls,
                 new_distinct - prev_distinct,
+                round(status_pct, 2),
             )
         )
 
+    rows.sort(key=lambda row: row[-1])
+
     log.info("📊 Table statistics comparison:")
-    log.info(format_table(output_columns, rows))
+    log.info(
+        format_table(
+            output_columns,
+            rows,
+            max_rows=len(rows),
+            max_cols=len(output_columns),
+        )
+    )

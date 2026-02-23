@@ -7,6 +7,7 @@ import typer
 from sqlcompare.db import DBConnection
 from sqlcompare.helpers import resolve_output_filename
 from sqlcompare.log import log
+from sqlcompare.utils.format import format_table
 
 
 def query(q: str, connection: str | None, output: str) -> None:
@@ -35,9 +36,7 @@ def query(q: str, connection: str | None, output: str) -> None:
 
     if output == "terminal":
         if rows:
-            from tabulate import tabulate
-
-            print(tabulate(rows, headers=columns, tablefmt="pretty"))
+            print(format_table(columns, rows))
             print(f"\nTotal rows: {len(rows)}")
         else:
             print("Query executed successfully. No rows returned.")
