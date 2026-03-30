@@ -49,7 +49,7 @@ Compare two tables on a key:
 
 ```bash
 export SQLCOMPARE_CONN_DEFAULT="postgresql://<user>:<pass>@<host>/<db>"
-sqlcompare table analytics.fact_sales analytics.fact_sales_new id
+sqlcompare run analytics.fact_sales analytics.fact_sales_new id
 ```
 
 That command prints a **diff_id**. Use it for follow-up analysis:
@@ -121,7 +121,7 @@ SQLCompare does two things:
 Best for production validation and regression checks across supported connectors.
 
 ```bash
-sqlcompare table analytics.users analytics.users_new user_id,tenant_id
+sqlcompare run analytics.users analytics.users_new user_id,tenant_id
 ```
 
 Why it’s useful:
@@ -135,7 +135,23 @@ Why it’s useful:
 
 Use this when tables aren’t materialized yet or you want a filtered slice.
 
-Create a dataset config:
+Inline SQL:
+
+```bash
+sqlcompare run \
+  "SELECT * FROM analytics.orders WHERE order_date < '2024-01-01'" \
+  "SELECT * FROM analytics.orders WHERE order_date >= '2024-01-01'" \
+  order_id \
+  -c snowflake_prod
+```
+
+SQL files:
+
+```bash
+sqlcompare run queries/previous.sql queries/current.sql order_id -c snowflake_prod
+```
+
+Or create a dataset config:
 
 ```yaml
 previous:
@@ -184,8 +200,7 @@ new:
 Set a local default connector and run:
 
 ```bash
-export SQLCOMPARE_CONN_DEFAULT="duckdb:///:memory:"
-sqlcompare dataset path/to/dataset.yaml
+sqlcompare run path/to/previous.csv path/to/current.xlsx id
 ```
 
 Why it’s useful:
@@ -201,7 +216,7 @@ Use this when your data lives in a local `.duckdb` file.
 
 ```bash
 export SQLCOMPARE_CONN_LOCAL="duckdb:////absolute/path/to/warehouse.duckdb"
-sqlcompare table raw.customers staged.customers id -c local
+sqlcompare run raw.customers staged.customers id -c local
 ```
 
 Why it’s useful:

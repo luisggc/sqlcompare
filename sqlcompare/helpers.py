@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import typer
 import yaml
@@ -14,6 +15,35 @@ from sqlcompare.log import log
 
 
 # Dataset helpers
+
+@dataclass(frozen=True)
+class InputSpec:
+    kind: Literal["table", "file", "sql"]
+    value: str
+    source: Literal["inline", "file", "none"] = "none"
+
+
+def _looks_like_sql(value: str) -> bool:
+    return bool(re.match(r"(?is)^\s*(select|with)\b", value))
+
+
+def detect_input(value: str) -> InputSpec:
+    path = Path(value)
+    if path.exists():
+        suffix = path.suffix.lower()
+        if suffix == ".sql":
+            sql_text = path.read_text(encoding="utf-8").strip()
+            if not sql_text:
+                raise typer.BadParameter(f"SQL file is empty: {path}")
+            return InputSpec(kind="sql", value=sql_text, source="file")
+        if suffix in (".csv", ".xlsx"):
+            return InputSpec(kind="file", value=str(path), source="file")
+        raise typer.BadParameter(f"Unsupported file type: {suffix}")
+
+    if _looks_like_sql(value):
+        return InputSpec(kind="sql", value=value.strip(), source="inline")
+
+    return InputSpec(kind="table", value=value.strip(), source="none")
 
 def expand_dataset_value(value: Any, base_dir: Path) -> Any:
     """
