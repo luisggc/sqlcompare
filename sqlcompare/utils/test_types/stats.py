@@ -1,7 +1,11 @@
+import os
+import uuid
 from pathlib import Path
 
+from sqlcompare.config import get_default_schema
 from sqlcompare.db import DBConnection
 from sqlcompare.log import log
+from sqlcompare.helpers import create_table_from_select, detect_input, ensure_schema
 from sqlcompare.utils.format import format_table
 
 
@@ -51,23 +55,65 @@ def _is_supported_file(path: Path) -> bool:
     return path.exists() and path.suffix.lower() in (".csv", ".xlsx")
 
 
+def _resolve_connection(connection: str | None) -> str:
+    if connection:
+        return connection
+    default_conn = os.getenv("SQLCOMPARE_CONN_DEFAULT") or os.getenv("DTK_CONN_DEFAULT")
+    if not default_conn:
+        raise ValueError(
+            "No connection specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
+        )
+    return default_conn
+
+
 def compare_table_stats(table1: str, table2: str, connection: str | None) -> None:
     table1_name = table1
     table2_name = table2
     connection_id = connection
 
-    if connection is None:
-        path1 = Path(table1).expanduser()
-        path2 = Path(table2).expanduser()
-        if _is_supported_file(path1) and _is_supported_file(path2):
+    spec_prev = detect_input(table1)
+    spec_new = detect_input(table2)
+
+    if spec_prev.kind == "file" or spec_new.kind == "file":
+        if spec_prev.kind != "file" or spec_new.kind != "file":
+            raise ValueError(
+                "Both table arguments must be file paths when using CSV/XLSX inputs."
+            )
+        if connection is None:
             connection_id = "duckdb:///:memory:"
-            table1_name = path1.stem
-            table2_name = path2.stem
+        table1_name = Path(spec_prev.value).stem
+        table2_name = Path(spec_new.value).stem
+    elif spec_prev.kind == "sql" or spec_new.kind == "sql":
+        connection_id = _resolve_connection(connection)
+        schema = get_default_schema()
+        schema_prefix = f"{schema}." if schema else ""
+        suffix = uuid.uuid4().hex[:8]
+        table1_name = (
+            spec_prev.value
+            if spec_prev.kind == "table"
+            else f"{schema_prefix}sqlcompare_stats_{suffix}_previous"
+        )
+        table2_name = (
+            spec_new.value
+            if spec_new.kind == "table"
+            else f"{schema_prefix}sqlcompare_stats_{suffix}_new"
+        )
+    else:
+        table1_name = spec_prev.value
+        table2_name = spec_new.value
 
     with DBConnection(connection_id) as db:
-        if connection is None and connection_id == "duckdb:///:memory:":
-            db.create_table_from_file(table1_name, table1)
-            db.create_table_from_file(table2_name, table2)
+        if spec_prev.kind == "file" and spec_new.kind == "file":
+            if connection is None and connection_id == "duckdb:///:memory:":
+                db.create_table_from_file(table1_name, spec_prev.value)
+                db.create_table_from_file(table2_name, spec_new.value)
+        if spec_prev.kind == "sql" or spec_new.kind == "sql":
+            schema = get_default_schema()
+            ensure_schema(db, schema)
+            if spec_prev.kind == "sql":
+                create_table_from_select(db, table1_name, spec_prev.value)
+            if spec_new.kind == "sql":
+                create_table_from_select(db, table2_name, spec_new.value)
 
         cols_prev = db.get_table_columns(table1_name)
         cols_new = db.get_table_columns(table2_name)

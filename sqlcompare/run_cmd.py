@@ -23,10 +23,10 @@ def _resolve_connection(connection: str | None) -> str:
 
 
 def run_cmd(
-    table1: str = typer.Argument(
+    previous: str = typer.Argument(
         ..., help="Previous table name, CSV/XLSX file path, or SQL"
     ),
-    table2: str = typer.Argument(
+    current: str = typer.Argument(
         ..., help="Current table name, CSV/XLSX file path, or SQL"
     ),
     index: str = typer.Argument(
@@ -70,8 +70,8 @@ def run_cmd(
     """
     schema = schema or get_default_schema()
 
-    prev_spec = detect_input(table1)
-    new_spec = detect_input(table2)
+    prev_spec = detect_input(previous)
+    new_spec = detect_input(current)
 
     if prev_spec.kind == "file" or new_spec.kind == "file":
         if prev_spec.kind != "file" or new_spec.kind != "file":
@@ -123,8 +123,8 @@ def run_cmd(
         return
 
     compare_table(
-        table1,
-        table2,
+        previous,
+        current,
         index,
         connection,
         schema,

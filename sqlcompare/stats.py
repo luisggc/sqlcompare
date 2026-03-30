@@ -6,8 +6,10 @@ from sqlcompare.utils.test_types.stats import compare_table_stats
 
 
 def stats_cmd(
-    table1: str = typer.Argument(..., help="Previous table name or CSV/XLSX file path"),
-    table2: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
+    previous: str = typer.Argument(
+        ..., help="Previous table name or CSV/XLSX file path"
+    ),
+    current: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
     connection: str | None = typer.Option(
         None, "--connection", "-c", help="Database connector name"
     ),
@@ -42,4 +44,4 @@ def stats_cmd(
         PREV_DISTINCT, NEW_DISTINCT: Unique value counts
         *_DIFF: Calculated differences
     """
-    compare_table_stats(table1, table2, connection)
+    compare_table_stats(previous, current, connection)
