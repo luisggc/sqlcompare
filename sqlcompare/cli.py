@@ -3,6 +3,7 @@ from __future__ import annotations
 import typer
 
 from sqlcompare.dataset import dataset_cmd
+from sqlcompare.diff_queries import diff_queries_cmd
 from sqlcompare.run_cmd import run_cmd
 from sqlcompare.inspect import inspect_cmd
 from sqlcompare.list_diffs import list_diffs_cmd
@@ -16,6 +17,7 @@ app = typer.Typer(help="Compare database tables and inspect diffs.")
 app.command("table")(table_cmd)
 app.command("run")(run_cmd)
 app.command("inspect")(inspect_cmd)
+app.command("diff-queries")(diff_queries_cmd)
 app.command("stats")(stats_cmd)
 app.command("list-diffs")(list_diffs_cmd)
 app.command("query")(query_cmd)

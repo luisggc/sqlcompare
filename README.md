@@ -58,11 +58,10 @@ That command prints a **diff_id**. Use it for follow-up analysis:
 sqlcompare inspect <diff_id> --stats
 sqlcompare inspect <diff_id> --column revenue --limit 100
 sqlcompare inspect <diff_id> --missing-current
+sqlcompare diff-queries <diff_id>
 sqlcompare inspect <diff_id> --save summary
 sqlcompare inspect <diff_id> --save complete --file-path ./reports/full_diff.xlsx
 ```
-
----
 
 ## Inspect report export (XLSX)
 
@@ -91,6 +90,23 @@ Notes:
 
 * `--file-path` is optional; if omitted, SQLCompare generates a readable timestamped filename.
 * `--save summary|complete` is for the standard diff view and should not be combined with `--stats`, `--missing-current`, `--missing-previous`, or `--list-columns`.
+
+---
+
+## diff-queries (AI-friendly metadata)
+
+Use `diff-queries` to get a JSON payload describing the queryable tables and ready-to-run SQL templates for a given `diff_id`. This is especially useful for AI agents that need structured context before running analysis queries.
+
+```bash
+sqlcompare diff-queries <diff_id>
+```
+
+Output (JSON):
+
+* `diff_id`, `resolved_diff_id`, `connection`
+* `index_columns`, `common_columns`
+* `tables`: previous/current/join table names and their columns
+* `queries`: SQL templates for row-only checks and per-column diffs
 
 ---
 

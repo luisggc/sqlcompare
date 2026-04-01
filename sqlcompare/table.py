@@ -101,7 +101,8 @@ def compare_table(
     )
     log.info(
         "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
-        "--column <name> to filter, --list-columns to inspect available fields."
+        "--column <name> to filter, --list-columns to inspect available fields, "
+        f"and sqlcompare diff-queries {diff_id} for queryable tables and SQL templates (useful for AI agents)."
     )
 
 
