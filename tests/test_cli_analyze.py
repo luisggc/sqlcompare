@@ -25,6 +25,7 @@ def _create_diff(tmp_path: Path, monkeypatch) -> str:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -46,9 +47,9 @@ def test_analyze_diff_stats_and_list_columns(tmp_path, monkeypatch) -> None:
     stats_result = runner.invoke(
         app,
         [
-            "inspect",
+            "review",
+            "stats",
             diff_id,
-            "--stats",
             "--column",
             "name",
             "--limit",
@@ -58,7 +59,7 @@ def test_analyze_diff_stats_and_list_columns(tmp_path, monkeypatch) -> None:
     assert stats_result.exit_code == 0, stats_result.output
     assert "Statistics for diff ID" in stats_result.output
 
-    list_result = runner.invoke(app, ["inspect", diff_id, "--list-columns"])
+    list_result = runner.invoke(app, ["review", "columns", diff_id])
     assert list_result.exit_code == 0, list_result.output
     assert "Available columns" in list_result.output
 
@@ -71,20 +72,21 @@ def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> N
         save_summary = runner.invoke(
             app,
             [
-                "inspect",
+                "review",
+                "export",
                 diff_id,
                 "--column",
                 "value",
-                "--save",
+                "--mode",
                 "summary",
-                "--file-path",
-                "reports/inspect_summary",
+                "--output",
+                "reports/review_summary.xlsx",
             ],
         )
         assert save_summary.exit_code == 0, save_summary.output
         assert "Report saved to:" in save_summary.output
         assert "Loaded diff data" not in save_summary.output
-        summary_path = Path.cwd() / "reports" / "inspect_summary.xlsx"
+        summary_path = Path.cwd() / "reports" / "review_summary.xlsx"
         assert summary_path.exists()
 
         summary_wb = load_workbook(summary_path)
@@ -103,9 +105,10 @@ def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> N
         save_complete = runner.invoke(
             app,
             [
-                "inspect",
+                "review",
+                "export",
                 diff_id,
-                "--save",
+                "--mode",
                 "complete",
             ],
         )
@@ -114,12 +117,12 @@ def test_analyze_diff_save_modes_and_missing_filters(tmp_path, monkeypatch) -> N
         saved = list(Path.cwd().glob("inspect_report_*.xlsx"))
         assert saved
 
-    missing_current = runner.invoke(app, ["inspect", diff_id, "--missing-current"])
+    missing_current = runner.invoke(app, ["review", "missing", diff_id, "--side", "current"])
     assert missing_current.exit_code == 0, missing_current.output
     assert "Loaded diff data" in missing_current.output
 
     missing_previous = runner.invoke(
-        app, ["inspect", diff_id, "--missing-previous"]
+        app, ["review", "missing", diff_id, "--side", "previous"]
     )
     assert missing_previous.exit_code == 0, missing_previous.output
     assert "Loaded diff data" in missing_previous.output
@@ -129,15 +132,10 @@ def test_analyze_diff_save_mode_validation(tmp_path, monkeypatch) -> None:
     diff_id = _create_diff(tmp_path, monkeypatch)
     runner = CliRunner()
 
-    invalid_mode = runner.invoke(app, ["inspect", diff_id, "--save", "csv"])
+    invalid_mode = runner.invoke(app, ["review", "export", diff_id, "--mode", "csv"])
     assert invalid_mode.exit_code != 0
-    assert "Invalid save mode" in invalid_mode.output
+    assert "Invalid --mode" in invalid_mode.output
 
-    incompatible = runner.invoke(
-        app, ["inspect", diff_id, "--save", "summary", "--stats"]
-    )
-    assert incompatible.exit_code != 0
-    assert "Report export (--save summary/complete)" in incompatible.output
 
 
 def test_analyze_diff_column_limit_uses_total_count(tmp_path, monkeypatch) -> None:
@@ -159,6 +157,7 @@ def test_analyze_diff_column_limit_uses_total_count(tmp_path, monkeypatch) -> No
     compare_result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -173,7 +172,7 @@ def test_analyze_diff_column_limit_uses_total_count(tmp_path, monkeypatch) -> No
     diff_id = next(iter(runs.keys()))
 
     inspect_result = runner.invoke(
-        app, ["inspect", diff_id, "--column", "value", "--limit", "2"]
+        app, ["review", "diff", diff_id, "--column", "value", "--limit", "2"]
     )
     assert inspect_result.exit_code == 0, inspect_result.output
     assert "Loaded diff data: 5 total differences" in inspect_result.output
@@ -200,6 +199,7 @@ def test_analyze_diff_with_only_index_columns(tmp_path, monkeypatch) -> None:
     compare_result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -211,6 +211,6 @@ def test_analyze_diff_with_only_index_columns(tmp_path, monkeypatch) -> None:
     assert compare_result.exit_code == 0, compare_result.output
 
     diff_id = next(iter(load_test_runs().keys()))
-    inspect_result = runner.invoke(app, ["inspect", diff_id])
+    inspect_result = runner.invoke(app, ["review", "diff", diff_id])
     assert inspect_result.exit_code == 0, inspect_result.output
     assert "Loaded diff data: 0 total differences" in inspect_result.output

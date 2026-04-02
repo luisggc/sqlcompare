@@ -1,6 +1,6 @@
 ---
 name: sqlcompare-core-run
-description: Run SQLCompare core comparisons across tables, SQL queries, and files to produce a diff_id. Use when the user wants to compare two datasets, choose index keys, set connectors, or run dataset configs via sqlcompare run/table/dataset/stats/query.
+description: Run SQLCompare core comparisons across tables, SQL queries, and files to produce a diff_id. Use when the user wants to compare two datasets, choose index keys, set connectors, or run dataset configs via sqlcompare run subcommands or sqlcompare query.
 ---
 
 # SQLCompare Core Run
@@ -17,23 +17,23 @@ Run the primary SQLCompare commands that create comparison artifacts and return 
 Use these patterns to pick the right entry point.
 
 1. Compare two tables or views.
-`sqlcompare run analytics.fact_sales analytics.fact_sales_new id`
+`sqlcompare run table analytics.fact_sales analytics.fact_sales_new id`
 2. Compare two SQL queries (inline or .sql files).
-`sqlcompare run "SELECT ..." "SELECT ..." id -c snowflake_prod`
-`sqlcompare run queries/previous.sql queries/current.sql id -c snowflake_prod`
+`sqlcompare run query --previous "SELECT ..." --current "SELECT ..." --index id -c snowflake_prod`
+`sqlcompare run query --previous queries/previous.sql --current queries/current.sql --index id -c snowflake_prod`
 3. Compare local files (CSV/XLSX) with DuckDB.
-`sqlcompare run path/to/previous.csv path/to/current.xlsx id`
+`sqlcompare run file path/to/previous.csv path/to/current.xlsx id`
 4. Use a dataset config for repeatable runs.
-`sqlcompare dataset path/to/dataset.yaml`
+`sqlcompare run dataset path/to/dataset.yaml`
 5. Run a fast statistical comparison (no diff_id needed for row-level drilldown).
-`sqlcompare stats analytics.users analytics.users_new -c snowflake_prod`
+`sqlcompare run stats analytics.users analytics.users_new -c snowflake_prod`
 6. Run a quick sanity query against a connector.
 `sqlcompare query "SELECT COUNT(*) FROM analytics.users" -c snowflake_prod`
 
 ## Inputs And Keys
 1. Provide index columns that exist in both datasets.
 2. Use comma-separated keys for composite indexes.
-`sqlcompare run analytics.users analytics.users_new user_id,tenant_id`
+`sqlcompare run table analytics.users analytics.users_new user_id,tenant_id`
 3. Fully qualify or quote identifiers when required by your database.
 
 ## Connections And Defaults

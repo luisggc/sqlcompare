@@ -95,22 +95,25 @@ def compare_table(
         include_columns=include_cols,
         ignore_columns=ignore_cols,
     )
-    log.info(f"🔎 To review the diff, run: sqlcompare inspect {diff_id}")
+    log.info(f"🔎 To review the diff, run: sqlcompare review diff {diff_id}")
     log.info(
-        f"💾 To export a summary report, run: sqlcompare inspect {diff_id} --save summary"
+        "💾 To export a summary report, run: "
+        f"sqlcompare review export {diff_id} --mode summary"
     )
     log.info(
-        "💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, "
-        "--column <name> to filter, --list-columns to inspect available fields, "
-        f"and sqlcompare diff-queries {diff_id} for queryable tables and SQL templates (useful for AI agents)."
+        "💡 Tips: sqlcompare review stats <diff_id> for per-column counts, "
+        "sqlcompare review missing <diff_id> --side current|previous for row-only, "
+        "sqlcompare review diff <diff_id> --column <name> to filter, "
+        "sqlcompare review columns <diff_id> to inspect available fields, "
+        f"and sqlcompare review meta {diff_id} for queryable tables and SQL templates (useful for AI agents)."
     )
 
 
-def table_cmd(
-    table1: str = typer.Argument(
+def run_table_cmd(
+    previous: str = typer.Argument(
         ..., help="Previous table name or CSV/XLSX file path"
     ),
-    table2: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
+    current: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
     index: str = typer.Argument(
         ..., help="Comma-separated key column(s), e.g. 'id' or 'user_id,tenant_id'"
     ),
@@ -136,19 +139,19 @@ def table_cmd(
 
     Examples:
         # Single key column
-        sqlcompare table analytics.users analytics.users_new id
+        sqlcompare run table analytics.users analytics.users_new id
 
         # Composite key (multi-column)
-        sqlcompare table orders orders_new "order_id,line_num"
+        sqlcompare run table orders orders_new "order_id,line_num"
 
         # Compare CSV files (uses DuckDB)
-        sqlcompare table exports/prev.csv exports/current.csv customer_id
+        sqlcompare run file exports/prev.csv exports/current.csv customer_id
 
         # Compare with specific connection
-        sqlcompare table raw.customers staged.customers id -c snowflake_prod
+        sqlcompare run table raw.customers staged.customers id -c snowflake_prod
 
         # Compare Excel files
-        sqlcompare table data/Q1.xlsx data/Q2.xlsx account_id
+        sqlcompare run file data/Q1.xlsx data/Q2.xlsx account_id
 
     Connection Resolution:
         1. --connection flag (highest priority)
@@ -156,8 +159,8 @@ def table_cmd(
         3. For files: auto-creates temporary DuckDB instance
     """
     compare_table(
-        table1,
-        table2,
+        previous,
+        current,
         index,
         connection,
         schema,

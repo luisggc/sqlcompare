@@ -62,7 +62,7 @@ Use these to isolate authentication vs query issues.
 1. Simple query against the target connector.
 `sqlcompare query "SELECT 1" -c <name>`
 2. List available diffs to confirm local metadata access.
-`sqlcompare list-diffs`
+`sqlcompare history`
 
 ## Common Fixes
 1. Use `-c <name>` explicitly to avoid accidental default selection.

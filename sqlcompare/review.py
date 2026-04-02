@@ -21,7 +21,7 @@ from sqlcompare.log import log
 SAVE_MODES = {"none", "summary", "complete"}
 
 
-def inspect_diff(
+def review_diff(
     diff_id: str,
     column: str | None = None,
     limit: int = 25,
@@ -33,9 +33,9 @@ def inspect_diff(
     missing_previous: bool = False,
 ) -> None:
     """
-    Inspect diff results from a previous comparison run.
+    Review diff results from a previous comparison run.
 
-    Supports database-backed diffs and legacy pickle files.
+    Supports database-backed diffs and pickle files.
     """
     save_mode = _normalize_save_mode(save)
     if save_mode != "none" and (
@@ -136,7 +136,7 @@ def inspect_diff(
     log.error("❌ Pickle-based diff files are not supported without pandas.")
 
 
-def inspect_cmd(
+def review_cmd(
     diff_id: str = typer.Argument(..., help="Diff run ID"),
     column: str | None = typer.Option(
         None, "--column", "-c", help="Filter by specific column name"
@@ -165,7 +165,7 @@ def inspect_cmd(
         False, "--missing-previous", help="Show rows only in previous dataset"
     ),
 ) -> None:
-    """Inspect results from a previous comparison.
+    """Review results from a previous comparison.
 
     After running 'table' or 'dataset' comparison, use this command to analyze
     the saved diff results. You can view statistics, filter by column, examine
@@ -173,30 +173,30 @@ def inspect_cmd(
 
     Examples:
         # View diff summary with statistics
-        sqlcompare inspect <diff_id> --stats
+        sqlcompare review stats <diff_id>
 
         # Filter differences for specific column
-        sqlcompare inspect <diff_id> --column revenue
+        sqlcompare review <diff_id> --column revenue
 
         # Show rows only in current dataset
-        sqlcompare inspect <diff_id> --missing-current
+        sqlcompare review missing <diff_id> --side current
 
         # Show rows only in previous dataset
-        sqlcompare inspect <diff_id> --missing-previous
+        sqlcompare review missing <diff_id> --side previous
 
         # List all available columns
-        sqlcompare inspect <diff_id> --list-columns
+        sqlcompare review columns <diff_id>
 
         # Show more results
-        sqlcompare inspect <diff_id> --limit 100
+        sqlcompare review <diff_id> --limit 100
 
         # Save summary workbook report
-        sqlcompare inspect <diff_id> --save summary
+        sqlcompare review export <diff_id> --mode summary
 
         # Save complete workbook report to a custom path
-        sqlcompare inspect <diff_id> --save complete --file-path /tmp/my_report.xlsx
+        sqlcompare review export <diff_id> --mode complete --output /tmp/my_report.xlsx
     """
-    inspect_diff(
+    review_diff(
         diff_id,
         column=column,
         limit=limit,

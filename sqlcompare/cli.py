@@ -2,27 +2,34 @@ from __future__ import annotations
 
 import typer
 
-from sqlcompare.dataset import dataset_cmd
-from sqlcompare.diff_queries import diff_queries_cmd
-from sqlcompare.run_cmd import run_cmd
-from sqlcompare.inspect import inspect_cmd
-from sqlcompare.list_diffs import list_diffs_cmd
 from sqlcompare.query import query_cmd
-from sqlcompare.stats import stats_cmd
-from sqlcompare.table import table_cmd
+from sqlcompare.history import history_cmd
+from sqlcompare.review_cmds import (
+    review_columns_cmd,
+    review_diff_cmd,
+    review_export_cmd,
+    review_meta_cmd,
+    review_missing_cmd,
+    review_stats_cmd,
+)
+from sqlcompare.run import run_unified_cmd
 
-app = typer.Typer(help="Compare database tables and inspect diffs.")
+app = typer.Typer(help="Compare datasets and review diffs.")
 
-# Register all commands
-app.command("table")(table_cmd)
-app.command("run")(run_cmd)
-app.command("inspect")(inspect_cmd)
-app.command("diff-queries")(diff_queries_cmd)
-app.command("stats")(stats_cmd)
-app.command("list-diffs")(list_diffs_cmd)
+review_app = typer.Typer(help="Review diff results and export reports.")
+
+app.command("run")(run_unified_cmd)
+app.add_typer(review_app, name="review")
+app.command("history")(history_cmd)
+
 app.command("query")(query_cmd)
-app.command("dataset")(dataset_cmd)
 
+review_app.command("diff")(review_diff_cmd)
+review_app.command("stats")(review_stats_cmd)
+review_app.command("missing")(review_missing_cmd)
+review_app.command("columns")(review_columns_cmd)
+review_app.command("export")(review_export_cmd)
+review_app.command("meta")(review_meta_cmd)
 
 def main() -> None:
     app()

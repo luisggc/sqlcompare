@@ -5,7 +5,7 @@ When you modify logic, filters, or inputs, it lets you compare the previous and 
 
 You can compare datasets in two complementary ways:
 
-1) Row-by-row comparison (with an ID): detect missing rows on either side, identify the columns with the most changes, and inspect before/after values for any record.
+1) Row-by-row comparison (with an ID): detect missing rows on either side, identify the columns with the most changes, and review before/after values for any record.
 2) Statistical comparison: compare column-level statistics such as null counts, distinct counts, and other aggregates to quickly understand overall impact.
 
 ---
@@ -49,56 +49,55 @@ Compare two tables on a key:
 
 ```bash
 export SQLCOMPARE_CONN_DEFAULT="postgresql://<user>:<pass>@<host>/<db>"
-sqlcompare run analytics.fact_sales analytics.fact_sales_new id
+sqlcompare run table analytics.fact_sales analytics.fact_sales_new id
 ```
 
 That command prints a **diff_id**. Use it for follow-up analysis:
 
 ```bash
-sqlcompare inspect <diff_id> --stats
-sqlcompare inspect <diff_id> --column revenue --limit 100
-sqlcompare inspect <diff_id> --missing-current
-sqlcompare diff-queries <diff_id>
-sqlcompare inspect <diff_id> --save summary
-sqlcompare inspect <diff_id> --save complete --file-path ./reports/full_diff.xlsx
+sqlcompare review stats <diff_id>
+sqlcompare review diff <diff_id> --column revenue --limit 100
+sqlcompare review missing <diff_id> --side current
+sqlcompare review meta <diff_id>
+sqlcompare review export <diff_id> --mode summary
+sqlcompare review export <diff_id> --mode complete --output ./reports/full_diff.xlsx
 ```
 
-## Inspect report export (XLSX)
+## Review report export (XLSX)
 
-You can export inspect results as a multi-tab Excel report using `--save`.
+You can export review results as a multi-tab Excel report using `review export`.
 
 Modes:
 
-* `--save none` (default): no file output
-* `--save summary`: creates `Overview` + per-column tabs (top 200 rows each) + `SQL Reference`
-* `--save complete`: same tabs, but without the 200-row cap (limited only by XLSX limits)
+* `--mode summary` (default): creates `Overview` + per-column tabs (top 200 rows each) + `SQL Reference`
+* `--mode complete`: same tabs, but without the 200-row cap (limited only by XLSX limits)
 
 Examples:
 
 ```bash
 # Save summary report in current directory with generated timestamped filename
-sqlcompare inspect <diff_id> --save summary
+sqlcompare review export <diff_id> --mode summary
 
 # Save full report to a specific location
-sqlcompare inspect <diff_id> --save complete --file-path ./reports/full_diff.xlsx
+sqlcompare review export <diff_id> --mode complete --output ./reports/full_diff.xlsx
 
 # Save a single-column summary report
-sqlcompare inspect <diff_id> --column revenue --save summary --file-path ./reports/revenue_diff.xlsx
+sqlcompare review export <diff_id> --mode summary --column revenue --output ./reports/revenue_diff.xlsx
 ```
 
 Notes:
 
-* `--file-path` is optional; if omitted, SQLCompare generates a readable timestamped filename.
-* `--save summary|complete` is for the standard diff view and should not be combined with `--stats`, `--missing-current`, `--missing-previous`, or `--list-columns`.
+* `--output` is optional; if omitted, SQLCompare generates a readable timestamped filename.
+* `review export` is for the standard diff view and should not be combined with `review stats`, `review missing`, or `review columns`.
 
 ---
 
-## diff-queries (AI-friendly metadata)
+## review meta (AI-friendly metadata)
 
-Use `diff-queries` to get a JSON payload describing the queryable tables and ready-to-run SQL templates for a given `diff_id`. This is especially useful for AI agents that need structured context before running analysis queries.
+Use `review meta` to get a JSON payload describing the queryable tables and ready-to-run SQL templates for a given `diff_id`. This is especially useful for AI agents that need structured context before running analysis queries.
 
 ```bash
-sqlcompare diff-queries <diff_id>
+sqlcompare review meta <diff_id>
 ```
 
 Output (JSON):
@@ -137,7 +136,7 @@ SQLCompare does two things:
 Best for production validation and regression checks across supported connectors.
 
 ```bash
-sqlcompare run analytics.users analytics.users_new user_id,tenant_id
+sqlcompare run table analytics.users analytics.users_new user_id,tenant_id
 ```
 
 Why it’s useful:
@@ -154,17 +153,17 @@ Use this when tables aren’t materialized yet or you want a filtered slice.
 Inline SQL:
 
 ```bash
-sqlcompare run \
-  "SELECT * FROM analytics.orders WHERE order_date < '2024-01-01'" \
-  "SELECT * FROM analytics.orders WHERE order_date >= '2024-01-01'" \
-  order_id \
+sqlcompare run query \
+  --previous "SELECT * FROM analytics.orders WHERE order_date < '2024-01-01'" \
+  --current "SELECT * FROM analytics.orders WHERE order_date >= '2024-01-01'" \
+  --index order_id \
   -c snowflake_prod
 ```
 
 SQL files:
 
 ```bash
-sqlcompare run queries/previous.sql queries/current.sql order_id -c snowflake_prod
+sqlcompare run query --previous queries/previous.sql --current queries/current.sql --index order_id -c snowflake_prod
 ```
 
 Or create a dataset config:
@@ -184,7 +183,7 @@ new:
 Run the compare:
 
 ```bash
-sqlcompare dataset path/to/dataset.yaml
+sqlcompare run dataset path/to/dataset.yaml
 ```
 
 Why it’s useful:
@@ -216,7 +215,7 @@ new:
 Set a local default connector and run:
 
 ```bash
-sqlcompare run path/to/previous.csv path/to/current.xlsx id
+sqlcompare run file path/to/previous.csv path/to/current.xlsx id
 ```
 
 Why it’s useful:
@@ -232,7 +231,7 @@ Use this when your data lives in a local `.duckdb` file.
 
 ```bash
 export SQLCOMPARE_CONN_LOCAL="duckdb:////absolute/path/to/warehouse.duckdb"
-sqlcompare run raw.customers staged.customers id -c local
+sqlcompare run table raw.customers staged.customers id -c local
 ```
 
 Why it’s useful:

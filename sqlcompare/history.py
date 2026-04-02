@@ -10,7 +10,7 @@ from sqlcompare.config import get_tests_folder, load_test_runs
 from sqlcompare.log import log
 
 
-def list_diffs(pattern: str | None, test: str | None) -> None:
+def list_history(pattern: str | None, test: str | None) -> None:
     """List available diff data files and runs."""
     tests_folder = get_tests_folder()
     search_pattern = f"{tests_folder}/*/diffs/*.pkl"
@@ -59,7 +59,7 @@ def list_diffs(pattern: str | None, test: str | None) -> None:
         )
 
 
-def list_diffs_cmd(
+def history_cmd(
     pattern: str | None = typer.Argument(None, help="Match diff IDs"),
     test: str | None = typer.Option(None, "--test", help="Filter by test name"),
 ) -> None:
@@ -69,15 +69,15 @@ def list_diffs_cmd(
 
     Examples:
         # List all diffs
-        sqlcompare list-diffs
+        sqlcompare history
 
         # Filter by pattern
-        sqlcompare list-diffs users
+        sqlcompare history users
 
         # Filter by test name
-        sqlcompare list-diffs --test migration_check
+        sqlcompare history --test migration_check
 
     Output:
         Displays: diff_id, test name, file size, creation date
     """
-    list_diffs(pattern, test)
+    list_history(pattern, test)

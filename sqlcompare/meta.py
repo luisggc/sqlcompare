@@ -7,7 +7,7 @@ from sqlcompare.analysis.utils import find_diff_file, find_diff_run, list_availa
 from sqlcompare.log import log
 
 
-def list_diff_queries(diff_id: str) -> None:
+def emit_meta(diff_id: str) -> None:
     """List queryable tables for a diff run along with their contents."""
     run = find_diff_run(diff_id)
     if not run:
@@ -165,12 +165,12 @@ LIMIT 10;""",
     ]
 
 
-def diff_queries_cmd(
+def meta_cmd(
     diff_id: str = typer.Argument(..., help="Diff run ID"),
 ) -> None:
     """List queryable tables and SQL templates for a diff run.
 
     Examples:
-        sqlcompare diff-queries <diff_id>
+        sqlcompare review meta <diff_id>
     """
-    list_diff_queries(diff_id)
+    emit_meta(diff_id)

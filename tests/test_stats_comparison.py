@@ -24,6 +24,7 @@ def test_table_command_with_stats(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "stats",
             "previous",
             "current",
@@ -92,6 +93,7 @@ def test_table_command_with_stats_from_files() -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "stats",
             str(prev_path),
             str(curr_path),
@@ -118,6 +120,7 @@ def test_stats_command_with_inline_sql(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "stats",
             "SELECT * FROM previous",
             "SELECT * FROM current",
@@ -150,6 +153,7 @@ def test_stats_command_with_sql_files(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "stats",
             str(prev_sql),
             str(new_sql),
@@ -170,6 +174,7 @@ def test_stats_command_sql_requires_connection(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "stats",
             "SELECT * FROM previous",
             "SELECT * FROM current",

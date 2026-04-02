@@ -31,7 +31,7 @@ def compare_dataset(path: str, connection: str | None, schema: str | None) -> No
     The YAML file should have 'previous' and 'new' sections,
     each with an 'index' field specifying key columns.
     """
-    from sqlcompare.table import compare_table
+    from sqlcompare.run_table import compare_table
 
     dataset_path = Path(path)
     if not dataset_path.exists():
@@ -121,7 +121,7 @@ def compare_dataset(path: str, connection: str | None, schema: str | None) -> No
     compare_table(previous_table, new_table, ",".join(index_cols), connector, schema)
 
 
-def dataset_cmd(
+def run_dataset_cmd(
     path: str = typer.Argument(..., help="Path to dataset YAML file"),
     connection: str | None = typer.Option(
         None,
@@ -166,10 +166,10 @@ def dataset_cmd(
 
     Examples:
         # Compare using dataset config
-        sqlcompare dataset configs/migration_check.yaml
+        sqlcompare run dataset configs/migration_check.yaml
 
         # Override connection from YAML
-        sqlcompare dataset configs/validation.yaml -c snowflake_prod
+        sqlcompare run dataset configs/validation.yaml -c snowflake_prod
 
         # Use {{here}} in YAML for relative file paths
         # {{here}} expands to the directory containing the YAML file

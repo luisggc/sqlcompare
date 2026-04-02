@@ -195,7 +195,7 @@ def test_row(df_previous, df_current, top_diff, test_config, save):
     log.info(f"📁 Analysis data saved with ID: {test_id}")
     log.info("💡 To analyze specific columns from this diff, run:")
     log.info(
-        f"   sqlcompare inspect {test_id} --limit 100 --column {column_with_most_diffs}"
+        f"   sqlcompare review {test_id} --limit 100 --column {column_with_most_diffs}"
     )
     log.info("")
 

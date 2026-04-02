@@ -8,7 +8,7 @@ import typer
 from sqlcompare.config import get_default_schema
 from sqlcompare.db import DBConnection
 from sqlcompare.helpers import create_table_from_select, detect_input, ensure_schema
-from sqlcompare.table import compare_table
+from sqlcompare.run_table import compare_table
 
 
 def _resolve_connection(connection: str | None) -> str:
@@ -22,7 +22,7 @@ def _resolve_connection(connection: str | None) -> str:
     return default_conn
 
 
-def run_cmd(
+def run_auto_cmd(
     previous: str = typer.Argument(
         ..., help="Previous table name, CSV/XLSX file path, or SQL"
     ),

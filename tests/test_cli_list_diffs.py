@@ -22,6 +22,7 @@ def _prepare_run(tmp_path, monkeypatch) -> str:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -40,11 +41,11 @@ def test_list_diffs_with_filters(tmp_path, monkeypatch) -> None:
     diff_id = _prepare_run(tmp_path, monkeypatch)
     runner = CliRunner()
 
-    result = runner.invoke(app, ["list-diffs", diff_id[:8], "--test", "duckdb_test"])
+    result = runner.invoke(app, ["history", diff_id[:8], "--test", "duckdb_test"])
     assert result.exit_code == 0, result.output
     assert diff_id[:30] in result.output
 
-    no_match = runner.invoke(app, ["list-diffs", "no_such_diff"])
+    no_match = runner.invoke(app, ["history", "no_such_diff"])
     assert no_match.exit_code == 0, no_match.output
     assert "No diff data found" in no_match.output
 
@@ -69,6 +70,6 @@ def test_list_diffs_filter_handles_none_conn(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SQLCOMPARE_CONFIG_DIR", str(config_dir))
 
     runner = CliRunner()
-    result = runner.invoke(app, ["list-diffs", "--test", "duckdb"])
+    result = runner.invoke(app, ["history", "--test", "duckdb"])
     assert result.exit_code == 0, result.output
     assert "No diff data found" in result.output

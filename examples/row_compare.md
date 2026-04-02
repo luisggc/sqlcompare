@@ -5,7 +5,7 @@ Compare rows using a dataset YAML with file inputs
 ## Command
 
 ```bash
-sqlcompare dataset tests/datasets/row_compare/dataset.yaml
+sqlcompare run dataset tests/datasets/row_compare/dataset.yaml
 ```
 
 ## Output
@@ -45,6 +45,6 @@ Rows only in previous dataset: 1
 | 1  |  name  | alpha  |  alfa   |
 | 1  | amount |   10   |   11    |
 +----+--------+--------+---------+
-🔎 To review the diff, run: sqlcompare inspect compare_sqlcompare_dataset_dataset_998aa249_previous_sqlcompare_dataset_dataset_998aa249_new_20260104_025829_b28946b5
-💡 Tips: --stats for per-column counts, --missing-current/--missing-previous for row-only, --column <name> to filter, --list-columns to inspect available fields.
+🔎 To review the diff, run: sqlcompare review compare_sqlcompare_dataset_dataset_998aa249_previous_sqlcompare_dataset_dataset_998aa249_new_20260104_025829_b28946b5
+💡 Tips: sqlcompare review stats <diff_id> for per-column counts, sqlcompare review missing <diff_id> --side current|previous for row-only, sqlcompare review diff <diff_id> --column <name> to filter, sqlcompare review columns <diff_id> to inspect available fields.
 ```

@@ -5,7 +5,7 @@ import typer
 from sqlcompare.utils.test_types.stats import compare_table_stats
 
 
-def stats_cmd(
+def run_stats_cmd(
     previous: str = typer.Argument(
         ..., help="Previous table name or CSV/XLSX file path"
     ),
@@ -30,13 +30,13 @@ def stats_cmd(
 
     Examples:
         # Compare table statistics
-        sqlcompare stats analytics.users analytics.users_new
+        sqlcompare run stats analytics.users analytics.users_new
 
         # Compare CSV file statistics
-        sqlcompare stats exports/jan.csv exports/feb.csv
+        sqlcompare run stats exports/jan.csv exports/feb.csv
 
         # Compare with specific connection
-        sqlcompare stats orders_v1 orders_v2 -c postgres_prod
+        sqlcompare run stats orders_v1 orders_v2 -c postgres_prod
 
     Output Columns:
         PREV_ROWS, NEW_ROWS: Total row counts

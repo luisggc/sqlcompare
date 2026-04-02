@@ -25,6 +25,7 @@ def _create_diff(tmp_path: Path, monkeypatch) -> str:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -43,7 +44,7 @@ def test_diff_queries_lists_queryable_tables(tmp_path, monkeypatch) -> None:
     diff_id = _create_diff(tmp_path, monkeypatch)
     runner = CliRunner()
 
-    result = runner.invoke(app, ["diff-queries", diff_id])
+    result = runner.invoke(app, ["review", "meta", diff_id])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["diff_id"] == diff_id

@@ -41,6 +41,7 @@ def test_dataset_command_with_connection_and_schema(tmp_path, monkeypatch) -> No
     result = runner.invoke(
         app,
         [
+            "run",
             "dataset",
             str(dataset_path),
             "--connection",

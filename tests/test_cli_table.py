@@ -25,6 +25,7 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -37,12 +38,12 @@ def test_table_command_with_options(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "inspect" in result.output
+    assert "review" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
     diff_id = next(iter(runs.keys()))
     assert (
-        f"sqlcompare inspect {diff_id} --save summary" in result.output
+        f"sqlcompare review export {diff_id} --mode summary" in result.output
     ), result.output
 
 
@@ -56,16 +57,16 @@ def test_table_command_with_files(tmp_path, monkeypatch) -> None:
 
     result = runner.invoke(
         app,
-        ["table", str(previous_csv), str(current_csv), "id"],
+        ["run", "file", str(previous_csv), str(current_csv), "id"],
     )
 
     assert result.exit_code == 0, result.output
-    assert "inspect" in result.output
+    assert "review" in result.output
     runs = load_test_runs()
     assert len(runs) == 1
     diff_id = next(iter(runs.keys()))
     assert (
-        f"sqlcompare inspect {diff_id} --save summary" in result.output
+        f"sqlcompare review export {diff_id} --mode summary" in result.output
     ), result.output
 
 
@@ -85,6 +86,7 @@ def test_table_command_ignore_columns_option(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
@@ -119,6 +121,7 @@ def test_table_command_columns_option(tmp_path, monkeypatch) -> None:
     result = runner.invoke(
         app,
         [
+            "run",
             "table",
             "previous",
             "current",
