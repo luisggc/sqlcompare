@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
 
 from typer.testing import CliRunner
 
 from sqlcompare.cli import app
+from sqlcompare.stats.models import CheckDefinition, CheckResult, StatsContext
+from sqlcompare.stats.runner import _run_selected_checks
 from tests.cli_helpers import seed_duckdb, set_cli_env
 
 
@@ -258,3 +261,60 @@ def test_stats_command_skips_column_checks_when_no_common_columns(tmp_path) -> N
     assert "Schema differences:" in result.output
     assert "Column comparison:" in result.output
     assert "No common columns available for column comparison." in result.output
+
+
+def test_run_selected_checks_executes_in_parallel_with_isolated_connections(
+    monkeypatch,
+) -> None:
+    thread_ids: set[int] = set()
+    start_barrier = threading.Barrier(2)
+
+    class FakeDBConnection:
+        def __init__(self, conn_id) -> None:
+            self.conn_id = conn_id
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+            return None
+
+    def runner(context: StatsContext, definition: CheckDefinition) -> CheckResult:
+        thread_ids.add(threading.get_ident())
+        start_barrier.wait(timeout=1)
+        return CheckResult(
+            name=definition.name,
+            label=definition.label,
+            has_differences=False,
+            summary=str(context.db.conn_id),
+        )
+
+    context = StatsContext(
+        db=object(),
+        previous_name="previous",
+        current_name="current",
+        previous_columns=[],
+        current_columns=[],
+        common_columns=[],
+        previous_only_columns=[],
+        current_only_columns=[],
+        previous_column_types={},
+        current_column_types={},
+    )
+    check_map = {
+        "nulls": CheckDefinition("nulls", "Null differences", runner),
+        "duplicates": CheckDefinition("duplicates", "Duplicate differences", runner),
+    }
+    monkeypatch.setattr("sqlcompare.stats.runner.DBConnection", FakeDBConnection)
+
+    results = _run_selected_checks(
+        context=context,
+        selected_check_names=["nulls", "duplicates"],
+        check_map=check_map,
+        connection_id="duckdb_test",
+        parallel_safe=True,
+    )
+
+    assert [result.name for result in results] == ["nulls", "duplicates"]
+    assert [result.summary for result in results] == ["duckdb_test", "duckdb_test"]
+    assert len(thread_ids) == 2

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,66 @@ def detect_input(value: str) -> InputSpec:
         return InputSpec(kind="sql", value=value.strip(), source="inline")
 
     return InputSpec(kind="table", value=value.strip(), source="none")
+
+
+def resolve_connection(
+    connection: str | None,
+    *,
+    error_cls: type[Exception] = typer.BadParameter,
+) -> str:
+    """Resolve a connection from an explicit value or the default environment variables."""
+    if connection:
+        return connection
+
+    default_conn = os.getenv("SQLCOMPARE_CONN_DEFAULT") or os.getenv("DTK_CONN_DEFAULT")
+    if not default_conn:
+        raise error_cls(
+            "No connection specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
+        )
+    return default_conn
+
+
+def resolve_materialized_tables(
+    previous_spec: InputSpec,
+    current_spec: InputSpec,
+    *,
+    schema: str | None,
+    prefix: str,
+    suffix: str,
+) -> tuple[str, str]:
+    """Return table names for a pair of table-or-SQL inputs."""
+    schema_prefix = f"{schema}." if schema else ""
+    previous_name = (
+        previous_spec.value
+        if previous_spec.kind == "table"
+        else f"{schema_prefix}{prefix}_{suffix}_previous"
+    )
+    current_name = (
+        current_spec.value
+        if current_spec.kind == "table"
+        else f"{schema_prefix}{prefix}_{suffix}_new"
+    )
+    return previous_name, current_name
+
+
+def materialize_sql_inputs(
+    db: DBConnection,
+    *,
+    previous_spec: InputSpec,
+    current_spec: InputSpec,
+    previous_table: str,
+    current_table: str,
+    schema: str | None,
+) -> None:
+    """Create tables for SQL inputs while leaving table-name inputs untouched."""
+    if previous_spec.kind != "sql" and current_spec.kind != "sql":
+        return
+
+    ensure_schema(db, schema or "")
+    if previous_spec.kind == "sql":
+        create_table_from_select(db, previous_table, previous_spec.value)
+    if current_spec.kind == "sql":
+        create_table_from_select(db, current_table, current_spec.value)
 
 def expand_dataset_value(value: Any, base_dir: Path) -> Any:
     """

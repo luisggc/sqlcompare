@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+from dataclasses import replace
 import uuid
 from pathlib import Path
 
@@ -8,22 +8,17 @@ import typer
 
 from sqlcompare.config import get_default_schema
 from sqlcompare.db import DBConnection
-from sqlcompare.helpers import create_table_from_select, detect_input, ensure_schema
+from sqlcompare.helpers import (
+    detect_input,
+    materialize_sql_inputs,
+    resolve_connection,
+    resolve_materialized_tables,
+)
 from sqlcompare.log import log
 from sqlcompare.stats.checks import get_check_map
 from sqlcompare.stats.models import ColumnPair, StatsContext
 from sqlcompare.stats.report import render_report
-
-
-def _resolve_connection(connection: str | None) -> str:
-    if connection:
-        return connection
-    default_conn = os.getenv("SQLCOMPARE_CONN_DEFAULT") or os.getenv("DTK_CONN_DEFAULT")
-    if not default_conn:
-        raise ValueError(
-            "No connection specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
-        )
-    return default_conn
+from sqlcompare.utils.concurrency import run_ordered
 
 
 def _resolve_checks(checks: str | None) -> list[str]:
@@ -101,6 +96,29 @@ def _build_context(db: DBConnection, previous_name: str, current_name: str) -> S
     )
 
 
+def _run_selected_checks(
+    context: StatsContext,
+    selected_check_names: list[str],
+    check_map: dict[str, object],
+    connection_id: str | None,
+    parallel_safe: bool,
+) -> list:
+    def run_check(name: str):
+        definition = check_map[name]
+        if not parallel_safe:
+            return definition.runner(context, definition)
+
+        with DBConnection(connection_id) as db:
+            return definition.runner(replace(context, db=db), definition)
+
+    return run_ordered(
+        selected_check_names,
+        run_check,
+        enabled=parallel_safe,
+        max_workers=4,
+    )
+
+
 def compare_table_stats(
     table1: str,
     table2: str,
@@ -125,42 +143,63 @@ def compare_table_stats(
         table1_name = Path(spec_prev.value).stem
         table2_name = Path(spec_new.value).stem
     elif spec_prev.kind == "sql" or spec_new.kind == "sql":
-        connection_id = _resolve_connection(connection)
+        connection_id = resolve_connection(connection, error_cls=ValueError)
         schema = get_default_schema()
-        schema_prefix = f"{schema}." if schema else ""
         suffix = uuid.uuid4().hex[:8]
-        table1_name = (
-            spec_prev.value
-            if spec_prev.kind == "table"
-            else f"{schema_prefix}sqlcompare_stats_{suffix}_previous"
-        )
-        table2_name = (
-            spec_new.value
-            if spec_new.kind == "table"
-            else f"{schema_prefix}sqlcompare_stats_{suffix}_new"
+        table1_name, table2_name = resolve_materialized_tables(
+            spec_prev,
+            spec_new,
+            schema=schema,
+            prefix="sqlcompare_stats",
+            suffix=suffix,
         )
     else:
         table1_name = spec_prev.value
         table2_name = spec_new.value
 
-    with DBConnection(connection_id) as db:
+    parallel_safe = not (
+        spec_prev.kind == "file" and spec_new.kind == "file" and connection is None
+    )
+
+    def prepare_inputs(db: DBConnection) -> None:
         if spec_prev.kind == "file" and spec_new.kind == "file":
             if connection is None and connection_id == "duckdb:///:memory:":
                 db.create_table_from_file(table1_name, spec_prev.value)
                 db.create_table_from_file(table2_name, spec_new.value)
-        if spec_prev.kind == "sql" or spec_new.kind == "sql":
-            schema = get_default_schema()
-            ensure_schema(db, schema)
-            if spec_prev.kind == "sql":
-                create_table_from_select(db, table1_name, spec_prev.value)
-            if spec_new.kind == "sql":
-                create_table_from_select(db, table2_name, spec_new.value)
+        materialize_sql_inputs(
+            db,
+            previous_spec=spec_prev,
+            current_spec=spec_new,
+            previous_table=table1_name,
+            current_table=table2_name,
+            schema=get_default_schema(),
+        )
 
-        context = _build_context(db, table1_name, table2_name)
-        check_map = get_check_map()
-        results = [
-            check_map[name].runner(context, check_map[name])
-            for name in selected_check_names
-        ]
+    if not parallel_safe:
+        with DBConnection(connection_id) as db:
+            prepare_inputs(db)
+            context = _build_context(db, table1_name, table2_name)
+            check_map = get_check_map()
+            results = _run_selected_checks(
+                context=context,
+                selected_check_names=selected_check_names,
+                check_map=check_map,
+                connection_id=connection_id,
+                parallel_safe=False,
+            )
+    else:
+        with DBConnection(connection_id) as db:
+            prepare_inputs(db)
+
+        with DBConnection(connection_id) as db:
+            context = _build_context(db, table1_name, table2_name)
+            check_map = get_check_map()
+            results = _run_selected_checks(
+                context=context,
+                selected_check_names=selected_check_names,
+                check_map=check_map,
+                connection_id=connection_id,
+                parallel_safe=True,
+            )
 
     log.info(render_report(context, selected_check_names, results))

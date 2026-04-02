@@ -5,11 +5,11 @@ import uuid
 
 import typer
 
-from sqlcompare.helpers import detect_input
+from sqlcompare.helpers import detect_input, resolve_connection
 from sqlcompare.run_table import compare_table, run_table_cmd
 from sqlcompare.run_dataset import run_dataset_cmd
 from sqlcompare.run_stats import run_stats_cmd
-from sqlcompare.run_auto import _resolve_connection, run_auto_cmd
+from sqlcompare.run_auto import run_auto_cmd
 from sqlcompare.config import get_default_schema
 from sqlcompare.db import DBConnection
 from sqlcompare.helpers import create_table_from_select, ensure_schema
@@ -91,7 +91,7 @@ def run_query_cmd(
     schema = schema or get_default_schema()
     previous_sql = _load_sql_input(previous, "previous")
     current_sql = _load_sql_input(current, "current")
-    connection = _resolve_connection(connection)
+    connection = resolve_connection(connection)
 
     schema_prefix = f"{schema}." if schema else ""
     suffix = _suffix_from_paths(previous, current)

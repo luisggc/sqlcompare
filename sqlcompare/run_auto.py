@@ -1,25 +1,18 @@
 from __future__ import annotations
 
-import os
 import uuid
 
 import typer
 
 from sqlcompare.config import get_default_schema
 from sqlcompare.db import DBConnection
-from sqlcompare.helpers import create_table_from_select, detect_input, ensure_schema
+from sqlcompare.helpers import (
+    detect_input,
+    materialize_sql_inputs,
+    resolve_connection,
+    resolve_materialized_tables,
+)
 from sqlcompare.run_table import compare_table
-
-
-def _resolve_connection(connection: str | None) -> str:
-    if connection:
-        return connection
-    default_conn = os.getenv("SQLCOMPARE_CONN_DEFAULT") or os.getenv("DTK_CONN_DEFAULT")
-    if not default_conn:
-        raise typer.BadParameter(
-            "No connection specified. Use --connection or set SQLCOMPARE_CONN_DEFAULT."
-        )
-    return default_conn
 
 
 def run_auto_cmd(
@@ -90,26 +83,24 @@ def run_auto_cmd(
         return
 
     if prev_spec.kind == "sql" or new_spec.kind == "sql":
-        connection = _resolve_connection(connection)
-        schema_prefix = f"{schema}." if schema else ""
-        suffix = uuid.uuid4().hex[:8]
-        previous_table = (
-            prev_spec.value
-            if prev_spec.kind == "table"
-            else f"{schema_prefix}sqlcompare_sql_{suffix}_previous"
-        )
-        new_table = (
-            new_spec.value
-            if new_spec.kind == "table"
-            else f"{schema_prefix}sqlcompare_sql_{suffix}_new"
+        connection = resolve_connection(connection)
+        previous_table, new_table = resolve_materialized_tables(
+            prev_spec,
+            new_spec,
+            schema=schema,
+            prefix="sqlcompare_sql",
+            suffix=uuid.uuid4().hex[:8],
         )
 
         with DBConnection(connection) as db:
-            ensure_schema(db, schema)
-            if prev_spec.kind == "sql":
-                create_table_from_select(db, previous_table, prev_spec.value)
-            if new_spec.kind == "sql":
-                create_table_from_select(db, new_table, new_spec.value)
+            materialize_sql_inputs(
+                db,
+                previous_spec=prev_spec,
+                current_spec=new_spec,
+                previous_table=previous_table,
+                current_table=new_table,
+                schema=schema,
+            )
 
         compare_table(
             previous_table,
