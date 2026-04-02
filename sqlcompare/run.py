@@ -158,6 +158,11 @@ def run_unified_cmd(
     index: str | None = typer.Option(
         None, "--index", help="Index columns (query mode)"
     ),
+    checks: str | None = typer.Option(
+        None,
+        "--checks",
+        help="Comma-separated checks to run for stats mode (default: all checks)",
+    ),
 ) -> None:
     """Run comparisons using a concise run command.
 
@@ -186,7 +191,12 @@ def run_unified_cmd(
                 raise typer.BadParameter("stats mode requires previous and current inputs.")
             if arg3 is not None:
                 raise typer.BadParameter("stats mode only accepts two arguments.")
-            run_stats_cmd(previous=arg1, current=arg2, connection=connection)
+            run_stats_cmd(
+                previous=arg1,
+                current=arg2,
+                connection=connection,
+                checks=checks,
+            )
             return
 
         if mode == "query":

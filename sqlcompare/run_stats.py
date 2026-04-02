@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typer
 
-from sqlcompare.utils.test_types.stats import compare_table_stats
+from sqlcompare.stats import compare_table_stats
 
 
 def run_stats_cmd(
@@ -12,6 +12,11 @@ def run_stats_cmd(
     current: str = typer.Argument(..., help="Current table name or CSV/XLSX file path"),
     connection: str | None = typer.Option(
         None, "--connection", "-c", help="Database connector name"
+    ),
+    checks: str | None = typer.Option(
+        None,
+        "--checks",
+        help="Comma-separated checks to run (default: all checks).",
     ),
 ) -> None:
     """Compare table statistics without row-by-row comparison.
@@ -38,10 +43,8 @@ def run_stats_cmd(
         # Compare with specific connection
         sqlcompare run stats orders_v1 orders_v2 -c postgres_prod
 
-    Output Columns:
-        PREV_ROWS, NEW_ROWS: Total row counts
-        PREV_NULLS, NEW_NULLS: Null counts per column
-        PREV_DISTINCT, NEW_DISTINCT: Unique value counts
-        *_DIFF: Calculated differences
+    Available Checks:
+        row_count, schema, nulls, duplicates
     """
-    compare_table_stats(previous, current, connection)
+    checks_value = checks if isinstance(checks, str) else None
+    compare_table_stats(previous, current, connection, checks=checks_value)

@@ -34,54 +34,18 @@ def test_table_command_with_stats(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Table statistics comparison" in result.output
-
-    lines = [line for line in result.output.splitlines() if line.strip()]
-    assert lines, result.output
-
-    header = []
-    rows: dict[str, list[str]] = {}
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        cells = stripped.split()
-        if not cells:
-            continue
-        if cells[0] == "COLUMN_NAME":
-            header = cells
-            continue
-        rows[cells[0]] = cells
-
-    expected_header = [
-        "COLUMN_NAME",
-        "PREV_ROWS",
-        "NEW_ROWS",
-        "PREV_NULLS",
-        "NEW_NULLS",
-        "PREV_DISTINCT",
-        "NEW_DISTINCT",
-        "ROWS_DIFF",
-        "NULLS_DIFF",
-        "DISTINCT_DIFF",
-        "STATUS_PCT",
-    ]
-    assert header == expected_header
-
-    for col_name in ("id", "name", "value"):
-        assert col_name in rows, result.output
-        assert rows[col_name][1:] == [
-            "2",
-            "2",
-            "0",
-            "0",
-            "2",
-            "2",
-            "0",
-            "0",
-            "0",
-            "100.0",
-        ]
+    assert "Stats comparison: previous -> current" in result.output
+    assert "Row counts:" in result.output
+    assert "Schema differences:" in result.output
+    assert "Column comparison:" in result.output
+    assert "STATUS_PCT" not in result.output
+    assert "Previous  Current  Diff % Diff" in result.output
+    assert "        2        2     0   0.0%" in result.output
+    assert "COL" in result.output
+    assert "MATCH" in result.output
+    assert "0 (no change)" in result.output
+    assert "Schemas match on column names (3 common columns)." in result.output
+    assert "Summary: 0 of 4 selected check(s) found differences." in result.output
 
 
 def test_table_command_with_stats_from_files() -> None:
@@ -101,7 +65,16 @@ def test_table_command_with_stats_from_files() -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Table statistics comparison" in result.output
+    assert "Stats comparison:" in result.output
+    assert "Row counts:" in result.output
+    assert "Schema differences:" in result.output
+    assert "Column comparison:" in result.output
+    assert "NULL" in result.output
+    assert "DUP" in result.output
+    assert "MATCH" in result.output
+    assert "notes" in result.output
+    assert "2 -> 1 (-50%)" in result.output
+    assert "0 (no change)" in result.output
 
 
 def test_stats_command_with_inline_sql(tmp_path, monkeypatch) -> None:
@@ -130,7 +103,7 @@ def test_stats_command_with_inline_sql(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Table statistics comparison" in result.output
+    assert "Stats comparison:" in result.output
 
 
 def test_stats_command_with_sql_files(tmp_path, monkeypatch) -> None:
@@ -163,7 +136,7 @@ def test_stats_command_with_sql_files(tmp_path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "Table statistics comparison" in result.output
+    assert "Stats comparison:" in result.output
 
 
 def test_stats_command_sql_requires_connection(tmp_path, monkeypatch) -> None:
@@ -183,3 +156,83 @@ def test_stats_command_sql_requires_connection(tmp_path, monkeypatch) -> None:
 
     assert result.exit_code != 0
     assert "No connection specified" in str(result.exception)
+
+
+def test_stats_command_supports_check_selection() -> None:
+    runner = CliRunner()
+    base = Path(__file__).resolve().parent
+    prev_path = base / "datasets" / "stats_compare" / "previous.csv"
+    curr_path = base / "datasets" / "stats_compare" / "current.csv"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "stats",
+            str(prev_path),
+            str(curr_path),
+            "--checks",
+            "row_count,schema",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Row counts:" in result.output
+    assert "Schema differences:" in result.output
+    assert "Column comparison:" not in result.output
+    assert "Summary: 1 of 2 selected check(s) found differences." in result.output
+
+
+def test_stats_command_rejects_unknown_checks() -> None:
+    runner = CliRunner()
+    base = Path(__file__).resolve().parent
+    prev_path = base / "datasets" / "stats_compare" / "previous.csv"
+    curr_path = base / "datasets" / "stats_compare" / "current.csv"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "stats",
+            str(prev_path),
+            str(curr_path),
+            "--checks",
+            "row_count,invalid_check",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Unknown check name(s): invalid_check" in result.output
+
+
+def test_stats_command_reports_schema_differences(tmp_path) -> None:
+    previous = tmp_path / "previous.csv"
+    current = tmp_path / "current.csv"
+    previous.write_text("id,name,legacy_only\n1,alpha,a\n2,bravo,b\n", encoding="utf-8")
+    current.write_text("id,name,current_only\n1,alpha,x\n2,bravo,y\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "stats", str(previous), str(current)])
+
+    assert result.exit_code == 0, result.output
+    assert "Schema differences:" in result.output
+    assert "Only in previous:" in result.output
+    assert "legacy_only" in result.output
+    assert "Only in current:" in result.output
+    assert "current_only" in result.output
+    assert "Column comparison:" in result.output
+
+
+def test_stats_command_skips_column_checks_when_no_common_columns(tmp_path) -> None:
+    previous = tmp_path / "previous.csv"
+    current = tmp_path / "current.csv"
+    previous.write_text("legacy_id\n1\n2\n", encoding="utf-8")
+    current.write_text("current_id\n1\n2\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "stats", str(previous), str(current)])
+
+    assert result.exit_code == 0, result.output
+    assert "Schema differences:" in result.output
+    assert "Column comparison:" in result.output
+    assert "No common columns available for column comparison." in result.output
