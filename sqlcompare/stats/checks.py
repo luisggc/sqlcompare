@@ -139,12 +139,22 @@ def run_row_count_check(context: StatsContext, definition: CheckDefinition) -> C
 def run_schema_check(context: StatsContext, definition: CheckDefinition) -> CheckResult:
     previous_only = context.previous_only_columns
     current_only = context.current_only_columns
-    has_differences = bool(previous_only or current_only)
+    type_changes = [
+        (
+            pair.previous_name,
+            pair.previous_type or "unknown",
+            pair.current_type or "unknown",
+        )
+        for pair in context.common_columns
+        if (pair.previous_type or "unknown").upper() != (pair.current_type or "unknown").upper()
+    ]
+    has_differences = bool(previous_only or current_only or type_changes)
     common_count = len(context.common_columns)
     if has_differences:
         summary = (
             f"{len(previous_only)} only in previous, "
             f"{len(current_only)} only in current, "
+            f"{len(type_changes)} type changes, "
             f"{common_count} common columns."
         )
     else:
@@ -157,6 +167,7 @@ def run_schema_check(context: StatsContext, definition: CheckDefinition) -> Chec
         metadata={
             "previous_only_columns": previous_only,
             "current_only_columns": current_only,
+            "type_changes": type_changes,
             "common_count": common_count,
         },
     )

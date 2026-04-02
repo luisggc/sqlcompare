@@ -42,6 +42,7 @@ def test_table_command_with_stats(tmp_path, monkeypatch) -> None:
     assert "Previous  Current  Diff % Diff" in result.output
     assert "        2        2     0   0.0%" in result.output
     assert "COL" in result.output
+    assert "TYPE" in result.output
     assert "MATCH" in result.output
     assert "0 (no change)" in result.output
     assert "Schemas match on column names (3 common columns)." in result.output
@@ -71,8 +72,10 @@ def test_table_command_with_stats_from_files() -> None:
     assert "Column comparison:" in result.output
     assert "NULL" in result.output
     assert "DUP" in result.output
+    assert "TYPE" in result.output
     assert "MATCH" in result.output
     assert "notes" in result.output
+    assert "VARCHAR (no change)" in result.output
     assert "2 -> 1 (-50%)" in result.output
     assert "0 (no change)" in result.output
 
@@ -221,6 +224,25 @@ def test_stats_command_reports_schema_differences(tmp_path) -> None:
     assert "Only in current:" in result.output
     assert "current_only" in result.output
     assert "Column comparison:" in result.output
+
+
+def test_stats_command_reports_type_changes_in_column_comparison(tmp_path) -> None:
+    previous = tmp_path / "previous.csv"
+    current = tmp_path / "current.csv"
+    previous.write_text("id,code\n1,100\n2,200\n", encoding="utf-8")
+    current.write_text("id,code\n1,A100\n2,B200\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "stats", str(previous), str(current)])
+
+    assert result.exit_code == 0, result.output
+    assert "Schema differences:" in result.output
+    assert "Type changes:" in result.output
+    assert "code: BIGINT -> VARCHAR" in result.output
+    assert "Column comparison:" in result.output
+    assert "TYPE" in result.output
+    assert "BIGINT -> VARCHAR" in result.output
+    assert "BIGINT (no change)" in result.output
 
 
 def test_stats_command_skips_column_checks_when_no_common_columns(tmp_path) -> None:

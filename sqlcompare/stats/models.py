@@ -9,6 +9,8 @@ class ColumnPair:
     key: str
     previous_name: str
     current_name: str
+    previous_type: str | None = None
+    current_type: str | None = None
 
 
 @dataclass
@@ -21,6 +23,8 @@ class StatsContext:
     common_columns: list[ColumnPair]
     previous_only_columns: list[str]
     current_only_columns: list[str]
+    previous_column_types: dict[str, str | None]
+    current_column_types: dict[str, str | None]
 
 
 @dataclass

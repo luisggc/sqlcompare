@@ -64,6 +64,8 @@ def _resolve_checks(checks: str | None) -> list[str]:
 def _build_context(db: DBConnection, previous_name: str, current_name: str) -> StatsContext:
     previous_columns = db.get_table_columns(previous_name)
     current_columns = db.get_table_columns(current_name)
+    previous_column_types = db.get_table_column_types(previous_name)
+    current_column_types = db.get_table_column_types(current_name)
     previous_map = {column.upper(): column for column in previous_columns}
     current_map = {column.upper(): column for column in current_columns}
 
@@ -72,6 +74,8 @@ def _build_context(db: DBConnection, previous_name: str, current_name: str) -> S
             key=key,
             previous_name=previous_map[key],
             current_name=current_map[key],
+            previous_type=previous_column_types.get(previous_map[key]),
+            current_type=current_column_types.get(current_map[key]),
         )
         for key in previous_map
         if key in current_map
@@ -92,6 +96,8 @@ def _build_context(db: DBConnection, previous_name: str, current_name: str) -> S
         common_columns=common_columns,
         previous_only_columns=previous_only_columns,
         current_only_columns=current_only_columns,
+        previous_column_types=previous_column_types,
+        current_column_types=current_column_types,
     )
 
 

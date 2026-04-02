@@ -24,12 +24,23 @@ def _status_cell(metric: dict) -> str:
     return f"{previous} -> {current} ({pct_diff})"
 
 
+def _type_status_cell(previous_type: str | None, current_type: str | None) -> str:
+    previous = previous_type or "unknown"
+    current = current_type or "unknown"
+
+    if previous.upper() == current.upper():
+        return f"{current} (no change)"
+
+    return f"{previous} -> {current}"
+
+
 def _build_column_comparison_table(
     context: StatsContext,
     selected_check_names: list[str],
     results_by_name: dict[str, CheckResult],
 ) -> tuple[list[str], list[tuple]]:
     columns = ["COL"]
+    columns.append("TYPE")
     rows: list[tuple] = []
 
     include_nulls = "nulls" in selected_check_names and "nulls" in results_by_name
@@ -57,6 +68,7 @@ def _build_column_comparison_table(
 
     for pair in context.common_columns:
         row = [pair.previous_name]
+        row.append(_type_status_cell(pair.previous_type, pair.current_type))
         similarities: list[float] = []
 
         if row_count_similarity is not None:
@@ -107,12 +119,19 @@ def render_report(
             lines.append(result.summary or "")
             prev_only = result.metadata.get("previous_only_columns", [])
             curr_only = result.metadata.get("current_only_columns", [])
+            type_changes = result.metadata.get("type_changes", [])
             if prev_only:
                 lines.append("Only in previous:")
                 lines.extend(f"  - {col}" for col in prev_only)
             if curr_only:
                 lines.append("Only in current:")
                 lines.extend(f"  - {col}" for col in curr_only)
+            if type_changes:
+                lines.append("Type changes:")
+                lines.extend(
+                    f"  - {column}: {previous_type} -> {current_type}"
+                    for column, previous_type, current_type in type_changes
+                )
             continue
 
         if result.skipped_reason:

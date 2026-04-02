@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine, Result
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -260,6 +260,26 @@ class DBConnection:
         # Fallback: use SELECT * WHERE 1=0 and get column names from result
         _, columns = self.query(f"SELECT * FROM {table_name} WHERE 1=0", include_columns=True)
         return columns
+
+    def get_table_column_types(self, table_name: str) -> dict[str, str | None]:
+        """
+        Get column types keyed by the actual column name as stored in the database.
+        """
+        inspector = inspect(self.conn)
+        schema = None
+        table = table_name
+        if "." in table_name:
+            schema, table = table_name.rsplit(".", 1)
+            schema = schema.strip('"')
+            table = table.strip('"')
+
+        columns = inspector.get_columns(table, schema=schema)
+        return {
+            str(column["name"]): (
+                None if column.get("type") is None else str(column["type"]).upper()
+            )
+            for column in columns
+        }
 
     def query(
         self,
