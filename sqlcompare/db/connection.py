@@ -265,6 +265,29 @@ class DBConnection:
         """
         Get column types keyed by the actual column name as stored in the database.
         """
+        try:
+            dialect_name = self._engine.dialect.name.lower() if self._engine else None
+        except Exception:
+            dialect_name = None
+
+        # SQLAlchemy's Snowflake inspector mis-parses three-part names by combining
+        # the current database with the provided database.schema prefix. DESCRIBE
+        # TABLE accepts the fully qualified name directly and preserves identifier case.
+        if dialect_name == "snowflake":
+            try:
+                result = self.query(f"DESCRIBE TABLE {table_name}")
+                if result:
+                    return {
+                        str(row[0]): (
+                            None
+                            if len(row) < 2 or row[1] is None
+                            else str(row[1]).upper()
+                        )
+                        for row in result
+                    }
+            except Exception:
+                pass
+
         inspector = inspect(self.conn)
         schema = None
         table = table_name
