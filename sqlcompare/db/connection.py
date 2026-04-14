@@ -152,22 +152,27 @@ class DBConnection:
             raise ValueError(f"Unsupported file type: {suffix}")
 
         tmp = f"tmp_{uuid.uuid4().hex}"
-        self.conn.execute(text(f"CREATE TABLE {tmp} AS {read_query}"))
-        cols = [
-            row[1]
-            for row in self.conn.execute(text(f"PRAGMA table_info('{tmp}')")).fetchall()
-        ]
-        exprs = []
-        for c in cols:
-            t = self._infer_column_type(tmp, c)
-            if t == "VARCHAR":
-                exprs.append(f'"{c}"')
-            else:
-                exprs.append(f'CAST("{c}" AS {t}) AS "{c}"')
-        self.conn.execute(
-            text(f"CREATE TABLE {table_name} AS SELECT {', '.join(exprs)} FROM {tmp}")
-        )
-        self.conn.execute(text(f"DROP TABLE {tmp}"))
+        try:
+            self.conn.execute(text(f"CREATE TABLE {tmp} AS {read_query}"))
+            cols = [
+                row[1]
+                for row in self.conn.execute(
+                    text(f"PRAGMA table_info('{tmp}')")
+                ).fetchall()
+            ]
+            exprs = []
+            for c in cols:
+                t = self._infer_column_type(tmp, c)
+                if t == "VARCHAR":
+                    exprs.append(f'"{c}"')
+                else:
+                    exprs.append(f'CAST("{c}" AS {t}) AS "{c}"')
+            self.conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+            self.conn.execute(
+                text(f"CREATE TABLE {table_name} AS SELECT {', '.join(exprs)} FROM {tmp}")
+            )
+        finally:
+            self.conn.execute(text(f"DROP TABLE IF EXISTS {tmp}"))
 
     @property
     def conn(self) -> Connection:

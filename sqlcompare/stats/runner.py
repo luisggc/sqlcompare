@@ -163,9 +163,8 @@ def compare_table_stats(
 
     def prepare_inputs(db: DBConnection) -> None:
         if spec_prev.kind == "file" and spec_new.kind == "file":
-            if connection is None and connection_id == "duckdb:///:memory:":
-                db.create_table_from_file(table1_name, spec_prev.value)
-                db.create_table_from_file(table2_name, spec_new.value)
+            db.create_table_from_file(table1_name, spec_prev.value)
+            db.create_table_from_file(table2_name, spec_new.value)
         materialize_sql_inputs(
             db,
             previous_spec=spec_prev,

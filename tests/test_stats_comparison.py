@@ -83,6 +83,51 @@ def test_table_command_with_stats_from_files() -> None:
     assert "0 (no change)" in result.output
 
 
+def test_table_command_with_stats_from_files_can_rerun_on_same_duckdb(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "sqlcompare.duckdb"
+    config_dir = tmp_path / "config"
+    set_cli_env(
+        monkeypatch,
+        config_dir,
+        "duckdb_test",
+        f"duckdb:///{db_path}",
+        schema="analysis_schema",
+    )
+    runner = CliRunner()
+    base = Path(__file__).resolve().parent
+    prev_path = base / "datasets" / "stats_compare" / "previous.csv"
+    curr_path = base / "datasets" / "stats_compare" / "current.csv"
+
+    first = runner.invoke(
+        app,
+        [
+            "run",
+            "stats",
+            str(prev_path),
+            str(curr_path),
+            "--connection",
+            "duckdb_test",
+        ],
+    )
+    second = runner.invoke(
+        app,
+        [
+            "run",
+            "stats",
+            str(prev_path),
+            str(curr_path),
+            "--connection",
+            "duckdb_test",
+        ],
+    )
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    assert "already exists" not in second.output.lower()
+
+
 def test_stats_command_with_inline_sql(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "sqlcompare.duckdb"
     seed_duckdb(db_path)
