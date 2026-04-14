@@ -1,20 +1,43 @@
 # SQLCompare
 
-SQLCompare helps you understand how a change impacted your data.
-When you modify logic, filters, or inputs, it lets you compare the previous and current versions of a dataset—whether they come from tables, SQL queries, or files.
+SQLCompare is a Python CLI and data diff tool for comparing SQL tables, SQL query results, CSV files, and Excel/XLSX files.
 
-You can compare datasets in two complementary ways:
+It is built for analytics engineers and data engineers who need to validate migrations, backfills, model rewrites, vendor file drops, and other data pipeline changes without relying on one-off SQL checks.
 
-1) Row-by-row comparison (with an ID): detect missing rows on either side, identify the columns with the most changes, and review before/after values for any record.
-2) Statistical comparison: compare column-level statistics such as null counts, distinct counts, and other aggregates to quickly understand overall impact.
+Use SQLCompare to compare datasets from PostgreSQL, Snowflake, Databricks, DuckDB, CSV, and XLSX sources with the same review workflow.
 
 ---
 
-## What you get
+## What SQLCompare Does
 
-- **Repeatable checks** for releases, backfills, migrations, and vendor drops
-- **Clear summaries**: missing-row detection + per-column change counts
-- **One workflow** for warehouses *and* local files (DuckDB-powered)
+- **Compare SQL tables** before and after a logic change
+- **Compare SQL query results** when tables are not materialized yet
+- **Compare CSV and Excel files** for local QA and vendor deliveries
+- **Review row-level diffs** with before/after values and missing-row detection
+- **Run analytics regression testing** with a repeatable saved `diff_id`
+
+SQLCompare supports two complementary comparison modes:
+
+1. Row-by-row comparison with an ID: detect missing rows, identify changed columns, and inspect before/after values.
+2. Statistical comparison: compare null counts, distinct counts, and other aggregates to understand overall impact.
+
+## Use Cases
+
+- Validate a dbt model rewrite by comparing the old and new SQL outputs on the same key.
+- Compare warehouse tables before deploying a migration or backfill.
+- Compare SQL query results when testing filters, joins, or business logic changes.
+- Diff vendor CSV or XLSX deliveries before loading them into your warehouse.
+- Run data validation checks for analytics regression testing and release QA.
+
+## Supported Connectors and File Types
+
+| Source type | Examples | Supported workflow |
+| --- | --- | --- |
+| SQL tables | PostgreSQL, Snowflake, Databricks, DuckDB | `sqlcompare run table ...` |
+| SQL query results | Inline SQL or `.sql` files | `sqlcompare run query ...` |
+| CSV files | Local `.csv` datasets | `sqlcompare run file ...` |
+| Excel files | Local `.xlsx` datasets | `sqlcompare run file ...` |
+| Dataset configs | YAML definitions for SQL or file sources | `sqlcompare run dataset ...` |
 
 ---
 
@@ -43,7 +66,9 @@ uv tool install "sqlcompare[databricks]"
 
 ---
 
-## Quick start (tables)
+## Quick Start
+
+### Compare SQL Tables
 
 Compare two tables on a key:
 
@@ -63,7 +88,35 @@ sqlcompare review export <diff_id> --mode summary
 sqlcompare review export <diff_id> --mode complete --output ./reports/full_diff.xlsx
 ```
 
-## Review report export (XLSX)
+### Compare SQL Query Results
+
+Use this when tables are not materialized yet or when you want to compare a filtered slice.
+
+Inline SQL:
+
+```bash
+sqlcompare run query \
+  --previous "SELECT * FROM analytics.orders WHERE order_date < '2024-01-01'" \
+  --current "SELECT * FROM analytics.orders WHERE order_date >= '2024-01-01'" \
+  --index order_id \
+  -c snowflake_prod
+```
+
+SQL files:
+
+```bash
+sqlcompare run query --previous queries/previous.sql --current queries/current.sql --index order_id -c snowflake_prod
+```
+
+### Compare CSV and Excel Files
+
+Use the same diff workflow for local file validation, vendor drops, and ad hoc QA.
+
+```bash
+sqlcompare run file path/to/previous.csv path/to/current.xlsx id
+```
+
+## Review Report Export (XLSX)
 
 You can export review results as a multi-tab Excel report using `review export`.
 
@@ -92,7 +145,27 @@ Notes:
 
 ---
 
-## review meta (AI-friendly metadata)
+## Analytics Regression Testing and Data Validation
+
+SQLCompare is useful when row counts are not enough and manual joins are too fragile. Instead of writing ad hoc SQL every time you change a model or pipeline, you can save a diff once and review it repeatedly with the generated `diff_id`.
+
+Common validation workflows:
+
+- release QA for transformed tables
+- migration and backfill verification
+- regression testing after SQL logic changes
+- warehouse-to-file or file-to-file comparison during onboarding
+
+## Why SQLCompare Instead of Manual SQL Diff Checks
+
+Manual SQL joins, notebooks, and spreadsheets usually answer one question once. SQLCompare keeps the comparison reusable:
+
+- run a compare once, then inspect stats, missing rows, and changed values
+- use the same workflow across warehouse tables and local files
+- export Excel review reports for debugging and handoff
+- avoid rebuilding the same outer join logic for every validation task
+
+## `review meta` for AI-Friendly Metadata
 
 Use `review meta` to get a JSON payload describing the queryable tables and ready-to-run SQL templates for a given `diff_id`. This is especially useful for AI agents that need structured context before running analysis queries.
 
@@ -109,13 +182,16 @@ Output (JSON):
 
 ---
 
-## Example outputs
+## Examples
 
 See [`examples/`](examples/) for datasets, commands, and captured outputs.
 
+- [`examples/row_compare.md`](examples/row_compare.md)
+- [`examples/stats_compare.md`](examples/stats_compare.md)
+
 ---
 
-## Core idea: compare once, analyze many times
+## Core Idea: Compare Once, Analyze Many Times
 
 SQLCompare does two things:
 
@@ -129,9 +205,9 @@ SQLCompare does two things:
 
 ---
 
-## Usage by use case
+## Usage by Use Case
 
-### 1) Compare two tables
+### 1) Compare SQL tables
 
 Best for production validation and regression checks across supported connectors.
 
@@ -148,7 +224,7 @@ Why it’s useful:
 
 ### 2) Compare SQL query results
 
-Use this when tables aren’t materialized yet or you want a filtered slice.
+Use this when tables are not materialized yet or you want a filtered slice.
 
 Inline SQL:
 
@@ -193,7 +269,7 @@ Why it’s useful:
 
 ---
 
-### 3) Compare local CSV / XLSX files (DuckDB)
+### 3) Compare CSV and Excel files (DuckDB)
 
 Great for ad hoc QA, one-off deliveries, or vendor drops.
 SQLCompare uses DuckDB under the hood — no DB server required.
